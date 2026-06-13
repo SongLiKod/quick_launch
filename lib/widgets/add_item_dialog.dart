@@ -272,6 +272,10 @@ class _AddItemDialogState extends State<AddItemDialog> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// 热键录制对话框
+// 使用 Focus.onKeyEvent 替代 KeyboardListener，解决 Dialog 内焦点不可靠的问题
+// ---------------------------------------------------------------------------
 class _HotkeyRecorderDialog extends StatefulWidget {
   final void Function(int modifiers, int virtualKey) onHotkeySet;
 
@@ -283,7 +287,16 @@ class _HotkeyRecorderDialog extends StatefulWidget {
 
 class _HotkeyRecorderDialogState extends State<_HotkeyRecorderDialog> {
   final FocusNode _focusNode = FocusNode();
-  String _currentLabel = '按下任意组合键...';
+  String _currentLabel = '请按下组合键 (如 Ctrl+Alt+A)';
+
+  @override
+  void initState() {
+    super.initState();
+    // Focus 在 Dialog 内需要构建完成后强制获取焦点
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
 
   @override
   void dispose() {
@@ -296,76 +309,23 @@ class _HotkeyRecorderDialogState extends State<_HotkeyRecorderDialog> {
     return AlertDialog(
       title: const Text('录制快捷键'),
       content: SizedBox(
-        width: 300,
-        height: 100,
-        child: Center(
-          child: KeyboardListener(
-            focusNode: _focusNode,
-            autofocus: true,
-            onKeyEvent: (event) {
-              if (event is KeyDownEvent) {
-                final key = event.logicalKey;
-                final isAlt = HardwareKeyboard.instance.isAltPressed;
-                final isCtrl = HardwareKeyboard.instance.isControlPressed;
-                final isShift = HardwareKeyboard.instance.isShiftPressed;
-                final isMeta = HardwareKeyboard.instance.isMetaPressed;
-
-                // Ignore modifier-only presses
-                if (key == LogicalKeyboardKey.altLeft ||
-                    key == LogicalKeyboardKey.altRight ||
-                    key == LogicalKeyboardKey.controlLeft ||
-                    key == LogicalKeyboardKey.controlRight ||
-                    key == LogicalKeyboardKey.shiftLeft ||
-                    key == LogicalKeyboardKey.shiftRight ||
-                    key == LogicalKeyboardKey.metaLeft ||
-                    key == LogicalKeyboardKey.metaRight) {
-                  return;
-                }
-
-                // Require at least one modifier
-                if (!isAlt && !isCtrl && !isShift && !isMeta) return;
-
-                int modifiers = 0;
-                final parts = <String>[];
-                if (isAlt) {
-                  modifiers |= 0x01;
-                  parts.add('Alt');
-                }
-                if (isCtrl) {
-                  modifiers |= 0x02;
-                  parts.add('Ctrl');
-                }
-                if (isShift) {
-                  modifiers |= 0x04;
-                  parts.add('Shift');
-                }
-                if (isMeta) {
-                  modifiers |= 0x08;
-                  parts.add('Win');
-                }
-
-                // Convert physical key to Windows VK code
-                final virtualKey = _physicalToVk(event.physicalKey);
-                if (virtualKey == null) return;
-
-                parts.add(_keyLabel(key));
-                _currentLabel = parts.join('+');
-
-                widget.onHotkeySet(modifiers, virtualKey);
-                Navigator.of(context).pop();
-              }
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.blue, width: 2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Text(
-                _currentLabel,
-                style: const TextStyle(fontSize: 18),
-                textAlign: TextAlign.center,
-              ),
+        width: 320,
+        height: 120,
+        child: Focus(
+          focusNode: _focusNode,
+          autofocus: true,
+          onKeyEvent: _onKeyEvent,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.blue, width: 2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(20),
+            alignment: Alignment.center,
+            child: Text(
+              _currentLabel,
+              style: const TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
             ),
           ),
         ),
@@ -379,11 +339,68 @@ class _HotkeyRecorderDialogState extends State<_HotkeyRecorderDialog> {
     );
   }
 
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+    final isAlt = HardwareKeyboard.instance.isAltPressed;
+    final isCtrl = HardwareKeyboard.instance.isControlPressed;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+    final isMeta = HardwareKeyboard.instance.isMetaPressed;
+
+    // 忽略纯修饰键按下
+    if (key == LogicalKeyboardKey.altLeft ||
+        key == LogicalKeyboardKey.altRight ||
+        key == LogicalKeyboardKey.controlLeft ||
+        key == LogicalKeyboardKey.controlRight ||
+        key == LogicalKeyboardKey.shiftLeft ||
+        key == LogicalKeyboardKey.shiftRight ||
+        key == LogicalKeyboardKey.metaLeft ||
+        key == LogicalKeyboardKey.metaRight) {
+      return KeyEventResult.handled;
+    }
+
+    // 必须至少有一个修饰键
+    if (!isAlt && !isCtrl && !isShift && !isMeta) return KeyEventResult.ignored;
+
+    int modifiers = 0;
+    final parts = <String>[];
+    if (isAlt) {
+      modifiers |= 0x01;
+      parts.add('Alt');
+    }
+    if (isCtrl) {
+      modifiers |= 0x02;
+      parts.add('Ctrl');
+    }
+    if (isShift) {
+      modifiers |= 0x04;
+      parts.add('Shift');
+    }
+    if (isMeta) {
+      modifiers |= 0x08;
+      parts.add('Win');
+    }
+
+    // 转换到 Windows 虚拟键码
+    final virtualKey = _physicalToVk(event.physicalKey);
+    if (virtualKey == null) return KeyEventResult.ignored;
+
+    parts.add(_keyLabel(key));
+    _currentLabel = parts.join('+');
+
+    // 通知父对话框并关闭
+    widget.onHotkeySet(modifiers, virtualKey);
+    Navigator.of(context).pop();
+
+    return KeyEventResult.handled;
+  }
+
   String _keyLabel(LogicalKeyboardKey key) {
     if (key.keyLabel.isNotEmpty && key.keyLabel.length == 1) {
       return key.keyLabel.toUpperCase();
     }
-    // Common named keys
+    // NOT const — LogicalKeyboardKey overrides ==/hashCode
     final labels = <LogicalKeyboardKey, String>{
       LogicalKeyboardKey.space: 'Space',
       LogicalKeyboardKey.enter: 'Enter',
@@ -404,57 +421,25 @@ class _HotkeyRecorderDialogState extends State<_HotkeyRecorderDialog> {
     return labels[key] ?? key.debugName ?? '?';
   }
 
-  /// Maps Flutter PhysicalKeyboardKey (USB HID usage) to Windows VK code
+  /// Flutter PhysicalKeyboardKey (USB HID) → Windows VK 码
   int? _physicalToVk(PhysicalKeyboardKey physical) {
     final hid = physical.usbHidUsage;
 
-    // Letters A-Z: HID 0x04-0x1D → VK 0x41-0x5A
-    if (hid >= 0x04 && hid <= 0x1D) {
-      return 0x41 + (hid - 0x04);
-    }
-    // Digits 0-9: HID 0x1E-0x27 → VK 0x30-0x39
-    if (hid >= 0x1E && hid <= 0x27) {
-      return 0x30 + (hid - 0x1E);
-    }
-    // Function keys F1-F12: HID 0x3A-0x45 → VK 0x70-0x7B
-    if (hid >= 0x3A && hid <= 0x45) {
-      return 0x70 + (hid - 0x3A);
-    }
+    // A-Z: HID 0x04-0x1D → VK 0x41-0x5A
+    if (hid >= 0x04 && hid <= 0x1D) return 0x41 + (hid - 0x04);
+    // 0-9: HID 0x1E-0x27 → VK 0x30-0x39
+    if (hid >= 0x1E && hid <= 0x27) return 0x30 + (hid - 0x1E);
+    // F1-F12: HID 0x3A-0x45 → VK 0x70-0x7B
+    if (hid >= 0x3A && hid <= 0x45) return 0x70 + (hid - 0x3A);
 
-    // Other common keys
     const special = <int, int>{
-      // HID → VK
-      0x2C: 0x20, // Space
-      0x2D: 0x2D, // -
-      0x2E: 0x3D, // =
-      0x2F: 0x5B, // [
-      0x30: 0x5D, // ]
-      0x31: 0x5C, // \
-      0x33: 0x3B, // ;
-      0x34: 0x27, // '
-      0x35: 0x60, // `
-      0x36: 0x2C, // ,
-      0x37: 0x2E, // .
-      0x38: 0x2F, // /
-      0x4C: 0x2E, // Delete
-      0x4D: 0x2D, // Insert
-      0x4E: 0x24, // Home
-      0x4F: 0x23, // End
-      0x50: 0x21, // PageUp
-      0x51: 0x22, // PageDown
-      0x52: 0x25, // Left
-      0x53: 0x27, // Right
-      0x54: 0x26, // Up
-      0x55: 0x28, // Down
-      0x62: 0x0D, // Enter (numpad)
-      0x63: 0x09, // Tab
-      0x64: 0x20, // Space
-      0x65: 0x2D, // Numpad -
-      0x66: 0x2E, // Numpad .
-      0x67: 0x25, // Numpad 4 (Left)
-      0x68: 0x26, // Numpad 8 (Up)
-      0x69: 0x27, // Numpad 6 (Right)
-      0x6A: 0x28, // Numpad 2 (Down)
+      0x2C: 0x20, 0x2D: 0x2D, 0x2E: 0x3D, 0x2F: 0x5B, 0x30: 0x5D,
+      0x31: 0x5C, 0x33: 0x3B, 0x34: 0x27, 0x35: 0x60, 0x36: 0x2C,
+      0x37: 0x2E, 0x38: 0x2F,
+      0x4C: 0x2E, 0x4D: 0x2D, 0x4E: 0x24, 0x4F: 0x23, 0x50: 0x21,
+      0x51: 0x22, 0x52: 0x25, 0x53: 0x27, 0x54: 0x26, 0x55: 0x28,
+      0x62: 0x0D, 0x63: 0x09, 0x64: 0x20, 0x65: 0x2D, 0x66: 0x2E,
+      0x67: 0x25, 0x68: 0x26, 0x69: 0x27, 0x6A: 0x28,
     };
     return special[hid];
   }

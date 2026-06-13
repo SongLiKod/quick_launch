@@ -50,7 +50,18 @@ class ItemTile extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.play_arrow, color: Colors.green),
               tooltip: '启动',
-              onPressed: () => LaunchService().launch(item),
+              onPressed: () async {
+                final result = await LaunchService().launch(item);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(result.success
+                        ? '正在启动 ${item.name}...'
+                        : '启动失败: ${result.errorMessage ?? "未知错误"}'),
+                    duration: Duration(seconds: result.success ? 1 : 3),
+                  ),
+                );
+              },
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
