@@ -3,11 +3,59 @@ import '../models/launch_item.dart';
 import '../services/hotkey_service.dart';
 import '../services/item_service.dart';
 import '../services/launch_service.dart';
+import 'add_item_dialog.dart';
 
 class ItemTile extends StatelessWidget {
   final LaunchItem item;
 
   const ItemTile({super.key, required this.item});
+
+  void _onEdit(BuildContext context) async {
+    final result = await showDialog<LaunchItem>(
+      context: context,
+      builder: (ctx) => AddItemDialog(item: item),
+    );
+    if (result == null) return;
+
+    // 原快捷键变了 → 先注销旧的
+    if (item.hotkeyVirtualKey != null) {
+      HotkeyService().unregisterItemHotkey(item);
+    }
+
+    // 更新数据
+    ItemService().updateItem(result);
+
+    // 新快捷键不为空 → 注册新的
+    if (result.hotkeyVirtualKey != null) {
+      HotkeyService().registerItemHotkey(result);
+    }
+  }
+
+  void _onDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('删除"${item.name}"？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (item.hotkeyVirtualKey != null) {
+                HotkeyService().unregisterItemHotkey(item);
+              }
+              ItemService().removeItem(item.id);
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,34 +112,14 @@ class ItemTile extends StatelessWidget {
               },
             ),
             IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: '编辑',
+              onPressed: () => _onEdit(context),
+            ),
+            IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               tooltip: '删除',
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('确认删除'),
-                    content: Text('删除"${item.name}"？'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(),
-                        child: const Text('取消'),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          if (item.hotkeyVirtualKey != null) {
-                            HotkeyService().unregisterItemHotkey(item);
-                          }
-                          ItemService().removeItem(item.id);
-                          Navigator.of(ctx).pop();
-                        },
-                        child: const Text('删除',
-                            style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
-                  ),
-                );
-              },
+              onPressed: () => _onDelete(context),
             ),
           ],
         ),

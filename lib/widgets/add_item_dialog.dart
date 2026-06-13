@@ -5,20 +5,49 @@ import '../models/launch_item.dart';
 import '../utils/path_util.dart';
 
 class AddItemDialog extends StatefulWidget {
-  const AddItemDialog({super.key});
+  /// 传入已有条目则为编辑模式，不传则为添加模式
+  final LaunchItem? item;
+
+  const AddItemDialog({super.key, this.item});
 
   @override
   State<AddItemDialog> createState() => _AddItemDialogState();
 }
 
 class _AddItemDialogState extends State<AddItemDialog> {
-  final _nameController = TextEditingController();
-  final _pathController = TextEditingController();
-  bool _runAsAdmin = false;
+  late final TextEditingController _nameController;
+  late final TextEditingController _pathController;
+  late bool _runAsAdmin;
   int? _hotkeyModifiers;
   int? _hotkeyVirtualKey;
-  String _hotkeyLabel = '点击录制';
-  ItemType _detectedType = ItemType.file;
+  late String _hotkeyLabel;
+  late ItemType _detectedType;
+
+  bool get _isEditing => widget.item != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.item;
+    _nameController = TextEditingController(text: existing?.name ?? '');
+    _pathController = TextEditingController(text: existing?.targetPath ?? '');
+    _runAsAdmin = existing?.runAsAdmin ?? false;
+    _hotkeyModifiers = existing?.hotkeyModifiers;
+    _hotkeyVirtualKey = existing?.hotkeyVirtualKey;
+    _detectedType = existing?.type ?? ItemType.file;
+
+    if (existing?.hotkeyVirtualKey != null) {
+      final mods = <String>[];
+      if (existing!.hotkeyModifiers! & 0x01 != 0) mods.add('Alt');
+      if (existing.hotkeyModifiers! & 0x02 != 0) mods.add('Ctrl');
+      if (existing.hotkeyModifiers! & 0x04 != 0) mods.add('Shift');
+      if (existing.hotkeyModifiers! & 0x08 != 0) mods.add('Win');
+      final keyName = _virtualKeyName(existing.hotkeyVirtualKey!);
+      _hotkeyLabel = '${mods.join('+')}+$keyName';
+    } else {
+      _hotkeyLabel = '点击录制';
+    }
+  }
 
   @override
   void dispose() {
@@ -33,7 +62,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
       final path = result.files.single.path!;
       _pathController.text = path;
       _detectedType = PathUtil.detectType(path);
-      if (_nameController.text.isEmpty) {
+      if (!_isEditing && _nameController.text.isEmpty) {
         _nameController.text = PathUtil.getFileName(path);
         final dotIndex = _nameController.text.lastIndexOf('.');
         if (dotIndex > 0) {
@@ -49,7 +78,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
     if (result != null) {
       _pathController.text = result;
       _detectedType = ItemType.folder;
-      if (_nameController.text.isEmpty) {
+      if (!_isEditing && _nameController.text.isEmpty) {
         _nameController.text = PathUtil.getFileName(result);
       }
       setState(() {});
@@ -150,7 +179,6 @@ class _AddItemDialogState extends State<AddItemDialog> {
             break;
         }
       } else {
-        // 非修饰键 — 必须是最后一个有意义的 part
         if (i != parts.length - 1) return null;
         keyPart = parts[i];
       }
@@ -166,17 +194,12 @@ class _AddItemDialogState extends State<AddItemDialog> {
   /// 将键名转换为 Windows 虚拟键码
   int? _textToVk(String key) {
     final upper = key.toUpperCase();
-
-    // 单个字母 A-Z
     if (upper.length == 1 && upper.codeUnitAt(0) >= 0x41 && upper.codeUnitAt(0) <= 0x5A) {
       return upper.codeUnitAt(0);
     }
-    // 数字 0-9
     if (upper.length == 1 && upper.codeUnitAt(0) >= 0x30 && upper.codeUnitAt(0) <= 0x39) {
       return upper.codeUnitAt(0);
     }
-
-    // 命名键映射
     const map = <String, int>{
       'F1': 0x70, 'F2': 0x71, 'F3': 0x72, 'F4': 0x73,
       'F5': 0x74, 'F6': 0x75, 'F7': 0x76, 'F8': 0x77,
@@ -275,7 +298,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
     }
 
     final item = LaunchItem(
-      id: const Uuid().v4(),
+      id: _isEditing ? widget.item!.id : const Uuid().v4(),
       name: _nameController.text.trim(),
       targetPath: _pathController.text.trim(),
       type: _detectedType,
@@ -298,7 +321,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
     };
 
     return AlertDialog(
-      title: const Text('添加启动项'),
+      title: Text(_isEditing ? '编辑启动项' : '添加启动项'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -385,11 +408,9 @@ class _AddItemDialogState extends State<AddItemDialog> {
         ),
         FilledButton(
           onPressed: _submit,
-          child: const Text('添加'),
+          child: Text(_isEditing ? '保存' : '添加'),
         ),
       ],
     );
   }
 }
-
-
