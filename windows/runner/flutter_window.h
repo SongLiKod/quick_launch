@@ -34,6 +34,13 @@ class FlutterWindow : public Win32Window {
   // MethodChannel for forwarding WM_HOTKEY events to the Dart side.
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
       hotkey_channel_;
+
+  // MethodChannel for receiving settings commands from the Dart side.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
+      settings_channel_;
+
+  // When true, the close button hides the window instead of closing it.
+  bool minimize_to_tray_ = false;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

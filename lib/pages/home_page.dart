@@ -6,6 +6,7 @@ import '../services/launch_service.dart';
 import '../services/system_commands.dart';
 import '../widgets/item_tile.dart';
 import '../widgets/add_item_dialog.dart';
+import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,12 +31,25 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _openSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SettingsPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('快速启动'),
         actions: [
+          // 设置按钮
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: '设置',
+            onPressed: _openSettings,
+          ),
+          // 系统命令菜单
           PopupMenuButton<LaunchItem>(
             tooltip: '系统命令',
             icon: const Icon(Icons.power_settings_new),
