@@ -1,17 +1,123 @@
-# quick_launch
+# Quick Launch
 
-A new Flutter project.
+一款 Windows 桌面快速启动工具，支持文件、文件夹、命令、链接等多种启动方式，提供全局快捷键、系统托盘、主题切换等功能。
 
-## Getting Started
+## 功能特性
 
-This project is a starting point for a Flutter application.
+### 🚀 启动项管理
 
-A few resources to get you started if this is your first Flutter project:
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| **应用程序** | 启动 `.exe` 可执行文件 | `C:\Program Files\...\app.exe` |
+| **批处理** | 运行 `.bat` / `.cmd` 脚本 | `C:\scripts\deploy.bat` |
+| **文件** | 用关联程序打开文件 | `C:\docs\report.pdf` |
+| **文件夹** | 在资源管理器中打开 | `D:\Projects` |
+| **命令** | 在 CMD 窗口中执行命令 | `ipconfig /all`、`ping 8.8.8.8` |
+| **链接** | 用默认浏览器打开链接 | `https://www.baidu.com` |
+| **系统命令** | 内置系统操作（一键直达） | 关机、重启、锁屏、控制面板等 |
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+内置系统命令：关机、重启、锁屏、控制面板、回收站、此电脑、计算器、记事本、任务管理器。
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### ⌨️ 全局快捷键
+
+- 为每个启动项设置**自定义全局热键**（如 `Ctrl+Alt+A`）
+- **显示/隐藏窗口快捷键**（如 `Ctrl+Shift+Q`），后台一键唤出
+- **快捷键冲突检测** — 设置时自动检测是否已被其他项目占用
+
+### 🎨 主题模式
+
+- **浅色模式** — 默认主题
+- **深色模式** — 暗色界面
+- **跟随系统** — 自动适配 Windows 主题
+
+### 📌 窗口置顶
+
+开启后窗口始终显示在其他窗口之上，方便快速访问。
+
+### 🗔 系统托盘
+
+- 关闭时**最小化到托盘**，后台运行
+- 托盘图标左键显示窗口，右键弹出快捷菜单
+- **启动时隐藏到托盘** — 开机自启后默默在后台运行
+
+### 🔄 排序方式
+
+- **手动拖拽** — 长按拖拽手柄自由排序
+- **按名称** — 按字母顺序排序
+- **按创建时间** — 按添加时间排序
+- **按类型** — 按启动项类型分组排列
+
+### ⏱️ 开机自启
+
+- 一键设置开机自启
+- 支持**延迟启动**（0-60 秒），避免与其他开机程序冲突
+
+### 📦 配置导入导出
+
+- **导出配置** — 将所有启动项和设置导出为 JSON 文件
+- **导入配置** — 从 JSON 文件恢复/追加启动项（自动跳过重复项）
+
+### 📋 启动日志
+
+- 自动记录每次启动操作（成功/失败）
+- 显示时间、名称、路径、状态、错误信息
+- 上限 200 条，支持清空
+
+## 安装
+
+### 从 Release 下载
+
+1. 前往 [Releases](https://github.com/qq1144403442/quick_launch/releases) 页面
+2. 下载最新版本的 `quick_launch_windows.zip`
+3. 解压到任意目录，运行 `quick_launch.exe`
+
+### 自行构建
+
+```bash
+# 克隆仓库
+git clone https://github.com/qq1144403442/quick_launch.git
+cd quick_launch
+
+# 安装依赖
+flutter pub get
+
+# 构建 Windows 版本
+flutter build windows --release
+
+# 产物在 build/windows/x64/runner/Release/
+```
+
+## 使用说明
+
+### 添加启动项
+
+1. 点击右下角 **`+`** 按钮
+2. 选择类型：**文件/文件夹** / **命令** / **链接**
+3. 输入路径或命令，填写名称
+4. 可选：设置快捷键、以管理员身份运行
+5. 点击 **添加**
+
+### 设置全局快捷键
+
+1. 在添加/编辑对话框中点击快捷键输入框
+2. 输入格式如 `Ctrl+Alt+A`、`Win+E`、`Alt+F4`、`Shift+F5`
+3. 如果快捷键被其他项目占用，会弹出冲突提示
+
+### 设置显示窗口快捷键
+
+进入设置 → 行为 → 显示窗口快捷键，设置全局热键用于在任意状态下唤出主窗口。
+
+### 编辑/删除启动项
+
+点击卡片上的 ✏️ 编辑或 🗑️ 删除按钮。
+
+## 快捷键参考
+
+| 修饰键 | 表示 |
+|--------|------|
+| Ctrl | `Ctrl` 或 `Control` |
+| Alt | `Alt` |
+| Shift | `Shift` |
+| Win | `Win` 或 `Windows` |
+
+支持的虚拟键：`A-Z`、`0-9`、`F1-F12`、`Space`、`Enter`、`Esc`、`Tab`、`Delete` 等。
