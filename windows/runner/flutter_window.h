@@ -41,6 +41,9 @@ class FlutterWindow : public Win32Window {
 
   // When true, the close button hides the window instead of closing it.
   bool minimize_to_tray_ = false;
+
+  // When true, skip the initial Show() call on startup.
+  bool hide_on_startup_ = false;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

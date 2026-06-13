@@ -24,7 +24,13 @@ void main() async {
   // 2. Run the app
   runApp(const QuickLaunchApp());
 
-  // 3. Wait for window ready
+  // 3. Send hideOnStartup to native BEFORE first frame renders
+  //    so the C++ side can skip Show() in SetNextFrameCallback
+  if (SettingsService().hideOnStartup.value) {
+    await _settingsChannel.invokeMethod('setHideOnStartup', true);
+  }
+
+  // 4. Wait for window ready
   await WidgetsBinding.instance.endOfFrame;
 
   // 4. Set native window handle for hotkey
@@ -89,7 +95,11 @@ void main() async {
 
   // 13. Hide on startup (last so no flash)
   if (SettingsService().hideOnStartup.value) {
-    appWindow.hide();
+    // Use ShowWindow directly via win32 for reliability
+    final hwnd = appWindow.handle;
+    if (hwnd != null) {
+      ShowWindow(hwnd, SW_HIDE);
+    }
   }
 }
 

@@ -52,6 +52,12 @@ bool FlutterWindow::OnCreate() {
             minimize_to_tray_ = std::get<bool>(args);
           }
           result->Success();
+        } else if (method == "setHideOnStartup") {
+          const auto& args = *call.arguments();
+          if (std::holds_alternative<bool>(args)) {
+            hide_on_startup_ = std::get<bool>(args);
+          }
+          result->Success();
         } else if (method == "requestExit") {
           // Called from tray "Exit" — force close regardless of minimize setting.
           minimize_to_tray_ = false;
@@ -63,7 +69,9 @@ bool FlutterWindow::OnCreate() {
       });
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
+    if (!hide_on_startup_) {
+      this->Show();
+    }
   });
 
   // Flutter can complete the first frame before the "show window" callback is

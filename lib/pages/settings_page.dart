@@ -395,16 +395,19 @@ class SettingsPage extends StatelessWidget {
   Widget _themeTile(BuildContext context, SettingsService service) {
     final icons = [Icons.light_mode, Icons.dark_mode, Icons.settings_brightness];
     final modes = [ThemeMode.light, ThemeMode.dark, ThemeMode.system];
-    return ListTile(
-      leading: const Icon(Icons.palette),
-      title: const Text('主题模式'),
-      subtitle: Text(
-          ['浅色', '深色', '跟随系统'][modes.indexOf(service.themeMode.value)]),
-      trailing: SegmentedButton<ThemeMode>(
-        segments: List.generate(3,
-            (i) => ButtonSegment(value: modes[i], icon: Icon(icons[i], size: 18))),
-        selected: {service.themeMode.value},
-        onSelectionChanged: (s) => service.setThemeMode(s.first),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: service.themeMode,
+      builder: (_, mode, _) => ListTile(
+        leading: const Icon(Icons.palette),
+        title: const Text('主题模式'),
+        subtitle: Text(
+            ['浅色', '深色', '跟随系统'][modes.indexOf(mode)]),
+        trailing: SegmentedButton<ThemeMode>(
+          segments: List.generate(3,
+              (i) => ButtonSegment(value: modes[i], icon: Icon(icons[i], size: 18))),
+          selected: {mode},
+          onSelectionChanged: (s) => service.setThemeMode(s.first),
+        ),
       ),
     );
   }
@@ -412,19 +415,22 @@ class SettingsPage extends StatelessWidget {
   Widget _sortModeTile(BuildContext context, SettingsService service) {
     const labels = ['手动', '按名称', '按创建时间'];
     const modes = [SortMode.manual, SortMode.name, SortMode.created];
-    return ListTile(
-      leading: const Icon(Icons.sort),
-      title: const Text('排序方式'),
-      subtitle: Text(labels[modes.indexOf(service.sortMode.value)]),
-      trailing: SegmentedButton<SortMode>(
-        segments: List.generate(3,
-            (i) => ButtonSegment(
-                value: modes[i], label: Text(labels[i], style: const TextStyle(fontSize: 12)))),
-        selected: {service.sortMode.value},
-        onSelectionChanged: (s) {
-          service.setSortMode(s.first);
-          ItemService().applySort();
-        },
+    return ValueListenableBuilder<SortMode>(
+      valueListenable: service.sortMode,
+      builder: (_, mode, _) => ListTile(
+        leading: const Icon(Icons.sort),
+        title: const Text('排序方式'),
+        subtitle: Text(labels[modes.indexOf(mode)]),
+        trailing: SegmentedButton<SortMode>(
+          segments: List.generate(3,
+              (i) => ButtonSegment(
+                  value: modes[i], label: Text(labels[i], style: const TextStyle(fontSize: 12)))),
+          selected: {mode},
+          onSelectionChanged: (s) {
+            service.setSortMode(s.first);
+            ItemService().applySort();
+          },
+        ),
       ),
     );
   }
