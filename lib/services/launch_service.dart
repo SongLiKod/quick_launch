@@ -38,6 +38,14 @@ class LaunchService {
         case ItemType.system:
           SystemCommands.execute(item.targetPath);
           break;
+
+        case ItemType.command:
+          await Process.run(
+            'cmd',
+            ['/c', item.targetPath],
+            runInShell: true,
+          );
+          break;
       }
 
       LaunchLogService().addLog(LaunchLogEntry(

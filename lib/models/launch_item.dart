@@ -1,4 +1,4 @@
-enum ItemType { executable, batScript, file, folder, system }
+enum ItemType { executable, batScript, file, folder, system, command }
 
 class LaunchItem {
   final String id;

@@ -22,6 +22,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
   int? _hotkeyVirtualKey;
   late String _hotkeyLabel;
   late ItemType _detectedType;
+  late bool _isCommandMode;
 
   bool get _isEditing => widget.item != null;
   String? _conflictHint; // 快捷键冲突提示
@@ -36,6 +37,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
     _hotkeyModifiers = existing?.hotkeyModifiers;
     _hotkeyVirtualKey = existing?.hotkeyVirtualKey;
     _detectedType = existing?.type ?? ItemType.file;
+    _isCommandMode = existing?.type == ItemType.command;
 
     if (existing?.hotkeyVirtualKey != null) {
       final mods = <String>[];
@@ -338,7 +340,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
       id: _isEditing ? widget.item!.id : const Uuid().v4(),
       name: _nameController.text.trim(),
       targetPath: _pathController.text.trim(),
-      type: _detectedType,
+      type: _isCommandMode ? ItemType.command : _detectedType,
       hotkeyModifiers: _hotkeyModifiers,
       hotkeyVirtualKey: _hotkeyVirtualKey,
       runAsAdmin: _runAsAdmin,
@@ -349,12 +351,13 @@ class _AddItemDialogState extends State<AddItemDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final typeLabel = switch (_detectedType) {
+    final typeLabel = switch (_isCommandMode ? ItemType.command : _detectedType) {
       ItemType.executable => '应用程序',
       ItemType.batScript => '脚本',
       ItemType.file => '文件',
       ItemType.folder => '文件夹',
       ItemType.system => '系统命令',
+      ItemType.command => '命令',
     };
 
     return AlertDialog(
@@ -376,25 +379,57 @@ class _AddItemDialogState extends State<AddItemDialog> {
             TextField(
               controller: _pathController,
               decoration: InputDecoration(
-                labelText: '路径',
-                hintText: '选择文件或文件夹',
+                labelText: _isCommandMode ? '命令' : '路径',
+                hintText: _isCommandMode ? '输入命令 (如: ipconfig /all)' : '选择文件、文件夹或输入命令',
                 border: const OutlineInputBorder(),
-                suffixIcon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.insert_drive_file),
-                      tooltip: '选择文件',
-                      onPressed: _pickFile,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.folder_open),
-                      tooltip: '选择文件夹',
-                      onPressed: _pickFolder,
-                    ),
-                  ],
-                ),
+                suffixIcon: !_isCommandMode
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.insert_drive_file),
+                            tooltip: '选择文件',
+                            onPressed: _pickFile,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.folder_open),
+                            tooltip: '选择文件夹',
+                            onPressed: _pickFolder,
+                          ),
+                        ],
+                      )
+                    : null,
               ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ChoiceChip(
+                  label: const Text('文件/文件夹'),
+                  selected: !_isCommandMode,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _isCommandMode = false;
+                        _detectedType = PathUtil.detectType(_pathController.text);
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('命令'),
+                  selected: _isCommandMode,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _isCommandMode = true;
+                        _detectedType = ItemType.command;
+                      });
+                    }
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
