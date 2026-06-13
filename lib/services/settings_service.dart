@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// 排序模式
+enum SortMode { manual, name, created }
+
 class SettingsService {
   static final SettingsService _instance = SettingsService._internal();
   factory SettingsService() => _instance;
@@ -11,6 +14,10 @@ class SettingsService {
   final ValueNotifier<bool> alwaysOnTop = ValueNotifier(false);
   final ValueNotifier<bool> minimizeToTray = ValueNotifier(true);
   final ValueNotifier<bool> autoStart = ValueNotifier(false);
+  // 新增设置
+  final ValueNotifier<bool> hideOnStartup = ValueNotifier(false);
+  final ValueNotifier<int> startupDelay = ValueNotifier(0);
+  final ValueNotifier<SortMode> sortMode = ValueNotifier(SortMode.manual);
 
   late SharedPreferences _prefs;
 
@@ -18,6 +25,9 @@ class SettingsService {
   static const _kAlwaysOnTop = 'always_on_top';
   static const _kMinimizeToTray = 'minimize_to_tray';
   static const _kAutoStart = 'auto_start';
+  static const _kHideOnStartup = 'hide_on_startup';
+  static const _kStartupDelay = 'startup_delay';
+  static const _kSortMode = 'sort_mode';
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -25,6 +35,9 @@ class SettingsService {
     alwaysOnTop.value = _prefs.getBool(_kAlwaysOnTop) ?? false;
     minimizeToTray.value = _prefs.getBool(_kMinimizeToTray) ?? true;
     autoStart.value = _prefs.getBool(_kAutoStart) ?? false;
+    hideOnStartup.value = _prefs.getBool(_kHideOnStartup) ?? false;
+    startupDelay.value = _prefs.getInt(_kStartupDelay) ?? 0;
+    sortMode.value = _parseSort(_prefs.getString(_kSortMode));
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -45,17 +58,39 @@ class SettingsService {
   Future<void> setAutoStart(bool value) async {
     autoStart.value = value;
     await _prefs.setBool(_kAutoStart, value);
-    _applyAutoStart(value);
+    _applyAutoStart(value, startupDelay.value);
   }
 
-  static void _applyAutoStart(bool enable) {
-    final keyPath =
-        r'HKCU\Software\Microsoft\Windows\CurrentVersion\Run';
+  Future<void> setHideOnStartup(bool value) async {
+    hideOnStartup.value = value;
+    await _prefs.setBool(_kHideOnStartup, value);
+  }
+
+  Future<void> setStartupDelay(int seconds) async {
+    startupDelay.value = seconds;
+    await _prefs.setInt(_kStartupDelay, seconds);
+    // 如果开机自启已开启，更新注册表
+    if (autoStart.value) {
+      _applyAutoStart(true, seconds);
+    }
+  }
+
+  Future<void> setSortMode(SortMode mode) async {
+    sortMode.value = mode;
+    await _prefs.setString(_kSortMode, _stringifySort(mode));
+  }
+
+  /// 写入/删除开机自启注册表，含延迟
+  static void _applyAutoStart(bool enable, int delaySec) {
+    final keyPath = r'HKCU\Software\Microsoft\Windows\CurrentVersion\Run';
     final exePath = Platform.resolvedExecutable;
     if (enable) {
+      // 有延迟则用 timeout 命令，无延迟直接启动
+      final cmd = delaySec > 0
+          ? 'cmd /c timeout /t $delaySec /nobreak >nul & start "" "$exePath"'
+          : '"$exePath"';
       Process.run('reg', [
-        'add', keyPath, '/v', 'QuickLaunch', '/t', 'REG_SZ', '/d',
-        '"$exePath"', '/f',
+        'add', keyPath, '/v', 'QuickLaunch', '/t', 'REG_SZ', '/d', cmd, '/f',
       ]);
     } else {
       Process.run('reg', [
@@ -76,5 +111,21 @@ class SettingsService {
     if (mode == ThemeMode.dark) return 'dark';
     if (mode == ThemeMode.system) return 'system';
     return 'light';
+  }
+
+  static SortMode _parseSort(String? s) {
+    switch (s) {
+      case 'name': return SortMode.name;
+      case 'created': return SortMode.created;
+      default: return SortMode.manual;
+    }
+  }
+
+  static String _stringifySort(SortMode mode) {
+    switch (mode) {
+      case SortMode.name: return 'name';
+      case SortMode.created: return 'created';
+      case SortMode.manual: return 'manual';
+    }
   }
 }

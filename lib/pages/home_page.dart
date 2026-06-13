@@ -4,6 +4,7 @@ import '../services/item_service.dart';
 import '../services/hotkey_service.dart';
 import '../services/launch_service.dart';
 import '../services/system_commands.dart';
+import '../services/settings_service.dart';
 import '../widgets/item_tile.dart';
 import '../widgets/add_item_dialog.dart';
 import 'settings_page.dart';
@@ -39,17 +40,19 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 手动排序模式下才启用拖拽
+    final sortMode = SettingsService().sortMode.value;
+    final enableDrag = sortMode == SortMode.manual;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('快速启动'),
         actions: [
-          // 设置按钮
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: '设置',
             onPressed: _openSettings,
           ),
-          // 系统命令菜单
           PopupMenuButton<LaunchItem>(
             tooltip: '系统命令',
             icon: const Icon(Icons.power_settings_new),
@@ -78,10 +81,28 @@ class _HomePageState extends State<HomePage> {
               ),
             );
           }
+
+          if (enableDrag) {
+            return ReorderableListView.builder(
+              padding: const EdgeInsets.only(top: 8, bottom: 80),
+              itemCount: list.length,
+              itemBuilder: (_, i) => ItemTile(
+                key: ValueKey(list[i].id),
+                item: list[i],
+              ),
+              onReorderItem: (oldIndex, newIndex) {
+                _itemService.reorderItem(oldIndex, newIndex);
+              },
+            );
+          }
+
           return ListView.builder(
             padding: const EdgeInsets.only(top: 8, bottom: 80),
             itemCount: list.length,
-            itemBuilder: (_, i) => ItemTile(item: list[i]),
+            itemBuilder: (_, i) => ItemTile(
+              key: ValueKey(list[i].id),
+              item: list[i],
+            ),
           );
         },
       ),

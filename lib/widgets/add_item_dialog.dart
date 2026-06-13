@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../models/launch_item.dart';
+import '../services/hotkey_service.dart';
 import '../utils/path_util.dart';
 
 class AddItemDialog extends StatefulWidget {
-  /// 传入已有条目则为编辑模式，不传则为添加模式
   final LaunchItem? item;
 
   const AddItemDialog({super.key, this.item});
@@ -24,6 +24,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
   late ItemType _detectedType;
 
   bool get _isEditing => widget.item != null;
+  String? _conflictHint; // 快捷键冲突提示
 
   @override
   void initState() {
@@ -129,6 +130,29 @@ class _AddItemDialogState extends State<AddItemDialog> {
               }
 
               final (modifiers, virtualKey) = result;
+
+              // 冲突检测
+              final conflict = HotkeyService().findConflict(
+                modifiers, virtualKey,
+                excludeId: widget.item?.id,
+              );
+              if (conflict != null) {
+                showDialog(
+                  context: ctx,
+                  builder: (c) => AlertDialog(
+                    title: const Text('快捷键冲突'),
+                    content: Text('"$conflict" 已使用该快捷键，请换一个。'),
+                    actions: [
+                      FilledButton(
+                        onPressed: () => Navigator.of(c).pop(),
+                        child: const Text('知道了'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
+
               _hotkeyModifiers = modifiers;
               _hotkeyVirtualKey = virtualKey;
 
@@ -139,6 +163,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
               if (modifiers & 0x08 != 0) modParts.add('Win');
               final keyName = _virtualKeyName(virtualKey);
               _hotkeyLabel = '${modParts.join('+')}+$keyName';
+              _conflictHint = null;
 
               Navigator.of(ctx).pop();
             },
@@ -149,7 +174,6 @@ class _AddItemDialogState extends State<AddItemDialog> {
     );
   }
 
-  /// 解析文本格式的快捷键，返回 (modifiers, virtualKey)，解析失败返回 null
   (int, int)? _parseHotkeyText(String text) {
     final parts = text.split('+').map((s) => s.trim()).toList();
     if (parts.length < 2) return null;
@@ -191,7 +215,6 @@ class _AddItemDialogState extends State<AddItemDialog> {
     return (modifiers, vk);
   }
 
-  /// 将键名转换为 Windows 虚拟键码
   int? _textToVk(String key) {
     final upper = key.toUpperCase();
     if (upper.length == 1 && upper.codeUnitAt(0) >= 0x41 && upper.codeUnitAt(0) <= 0x5A) {
@@ -297,6 +320,20 @@ class _AddItemDialogState extends State<AddItemDialog> {
       return;
     }
 
+    // 最终提交时再次检查冲突（防止冲突检测后用户改了其他项）
+    if (_hotkeyVirtualKey != null) {
+      final conflict = HotkeyService().findConflict(
+        _hotkeyModifiers, _hotkeyVirtualKey,
+        excludeId: widget.item?.id,
+      );
+      if (conflict != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('快捷键与 "$conflict" 冲突，请修改后再保存')),
+        );
+        return;
+      }
+    }
+
     final item = LaunchItem(
       id: _isEditing ? widget.item!.id : const Uuid().v4(),
       name: _nameController.text.trim(),
@@ -382,11 +419,16 @@ class _AddItemDialogState extends State<AddItemDialog> {
                         _hotkeyModifiers = null;
                         _hotkeyVirtualKey = null;
                         _hotkeyLabel = '点击录制';
+                        _conflictHint = null;
                       });
                     },
                   ),
               ],
             ),
+            if (_conflictHint != null) ...[
+              const SizedBox(height: 4),
+              Text(_conflictHint!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [

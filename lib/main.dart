@@ -7,18 +7,19 @@ import 'app.dart';
 import 'services/item_service.dart';
 import 'services/hotkey_service.dart';
 import 'services/settings_service.dart';
+import 'services/launch_log_service.dart';
 import 'utils/tray_icon.dart';
 
-/// Global reference so tray callbacks can access it.
 late final SystemTray systemTray;
 const MethodChannel _settingsChannel = MethodChannel('quick_launch/settings');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Load saved settings and items
+  // 1. Load saved settings, items, and log
   await SettingsService().load();
   await ItemService().load();
+  await LaunchLogService().load();
 
   // 2. Run the app
   runApp(const QuickLaunchApp());
@@ -39,7 +40,7 @@ void main() async {
     }
   }
 
-  // 6. Setup MethodChannel for WM_HOTKEY from native side
+  // 6. Setup MethodChannel for WM_HOTKEY
   const hotkeyChannel = MethodChannel('quick_launch/hotkey');
   hotkeyChannel.setMethodCallHandler((call) async {
     if (call.method == 'onHotkey') {
@@ -55,17 +56,22 @@ void main() async {
   // 8. Init system tray
   await _initSystemTray();
 
-  // 9. Apply always-on-top setting
+  // 9. Apply always-on-top
   if (SettingsService().alwaysOnTop.value) {
-    final hwnd = appWindow.handle;
-    if (hwnd != null) {
-      SetWindowPos(
-        hwnd,
-        HWND_TOPMOST,
-        0, 0, 0, 0,
-        SWP_NOMOVE | SWP_NOSIZE,
-      );
-    }
+    _setTopmost(true);
+  }
+
+  // 10. Hide on startup (do this last so window doesn't flash)
+  if (SettingsService().hideOnStartup.value) {
+    appWindow.hide();
+  }
+}
+
+void _setTopmost(bool on) {
+  final hwnd = appWindow.handle;
+  if (hwnd != null) {
+    SetWindowPos(hwnd, on ? HWND_TOPMOST : HWND_NOTOPMOST,
+        0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
   }
 }
 
@@ -94,7 +100,6 @@ Future<void> _initSystemTray() async {
     toolTip: '快速启动',
   );
 
-  // Build context menu
   final menu = Menu();
   await menu.buildFrom([
     MenuItemLabel(
@@ -112,7 +117,6 @@ Future<void> _initSystemTray() async {
   ]);
   await systemTray.setContextMenu(menu);
 
-  // 左键单击托盘图标显示窗口
   systemTray.registerSystemTrayEventHandler((event) {
     if (event == kSystemTrayEventClick) {
       appWindow.show();

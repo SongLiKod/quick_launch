@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../models/launch_item.dart';
 import 'system_commands.dart';
+import 'launch_log_service.dart';
 
 /// 启动结果
 typedef LaunchResult = ({bool success, String? errorMessage});
@@ -11,15 +12,13 @@ class LaunchService {
   factory LaunchService() => _instance;
   LaunchService._internal();
 
-  /// 启动一个项目，返回结果（不抛出异常）
+  /// 启动一个项目，返回结果并记录日志
   Future<LaunchResult> launch(LaunchItem item) async {
     try {
       switch (item.type) {
         case ItemType.executable:
         case ItemType.batScript:
         case ItemType.file:
-          // 使用 cmd.exe 的 start 命令，行为等同于在资源管理器中双击
-          // runInShell: true 让 cmd.exe 正确处理路径引号和空格
           await Process.run(
             'start',
             ['""', item.targetPath],
@@ -40,14 +39,32 @@ class LaunchService {
           SystemCommands.execute(item.targetPath);
           break;
       }
+
+      LaunchLogService().addLog(LaunchLogEntry(
+        timestamp: DateTime.now(),
+        itemName: item.name,
+        targetPath: item.targetPath,
+        success: true,
+        message: '启动成功',
+      ));
+
       return (success: true, errorMessage: null);
     } catch (e) {
-      debugPrint('Failed to launch ${item.name}: $e');
-      return (success: false, errorMessage: e.toString());
+      final msg = e.toString();
+
+      LaunchLogService().addLog(LaunchLogEntry(
+        timestamp: DateTime.now(),
+        itemName: item.name,
+        targetPath: item.targetPath,
+        success: false,
+        message: msg,
+      ));
+
+      debugPrint('Failed to launch ${item.name}: $msg');
+      return (success: false, errorMessage: msg);
     }
   }
 
-  /// 安全获取父目录
   String? _parentDir(String path) {
     try {
       return Directory(path).parent.path;

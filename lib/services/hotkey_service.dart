@@ -2,6 +2,7 @@ import 'package:win32/win32.dart';
 import 'package:flutter/foundation.dart';
 import '../models/launch_item.dart';
 import 'launch_service.dart';
+import 'item_service.dart';
 
 class HotkeyService {
   static final HotkeyService _instance = HotkeyService._internal();
@@ -43,7 +44,6 @@ class HotkeyService {
     }
   }
 
-  /// 注销单个项目的快捷键
   void unregisterItemHotkey(LaunchItem item) {
     final hotkeyId = baseHotkeyId + (item.id.hashCode.abs() % 9000);
     _hotkeyMap.remove(hotkeyId);
@@ -55,6 +55,18 @@ class HotkeyService {
     if (item != null) {
       LaunchService().launch(item);
     }
+  }
+
+  /// 检测快捷键是否冲突. 返回冲突项的 name，无冲突返回 null.
+  String? findConflict(int? modifiers, int? virtualKey, {String? excludeId}) {
+    if (modifiers == null || virtualKey == null) return null;
+    for (final item in ItemService().items.value) {
+      if (excludeId != null && item.id == excludeId) continue;
+      if (item.hotkeyModifiers == modifiers && item.hotkeyVirtualKey == virtualKey) {
+        return item.name;
+      }
+    }
+    return null;
   }
 
   void dispose() {
