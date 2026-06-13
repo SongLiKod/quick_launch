@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../models/launch_item.dart';
@@ -58,23 +57,144 @@ class _AddItemDialogState extends State<AddItemDialog> {
   }
 
   void _startHotkeyRecording() {
+    final controller = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => _HotkeyRecorderDialog(
-        onHotkeySet: (modifiers, virtualKey) {
-          _hotkeyModifiers = modifiers;
-          _hotkeyVirtualKey = virtualKey;
-          final modParts = <String>[];
-          if (modifiers & 0x01 != 0) modParts.add('Alt');
-          if (modifiers & 0x02 != 0) modParts.add('Ctrl');
-          if (modifiers & 0x04 != 0) modParts.add('Shift');
-          if (modifiers & 0x08 != 0) modParts.add('Win');
-          final keyName = _virtualKeyName(virtualKey);
-          _hotkeyLabel = '${modParts.join('+')}+$keyName';
-          setState(() {});
-        },
+      builder: (ctx) => AlertDialog(
+        title: const Text('设置快捷键'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('输入快捷键组合，例如：'),
+            const SizedBox(height: 8),
+            Text('  Ctrl+Alt+A\n  Ctrl+Shift+F5\n  Win+E\n  Alt+Space',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '快捷键',
+                hintText: 'Ctrl+Alt+A',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+
+              final result = _parseHotkeyText(text);
+              if (result == null) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('无效的快捷键格式，请使用 Ctrl+Alt+A 格式')),
+                );
+                return;
+              }
+
+              final (modifiers, virtualKey) = result;
+              _hotkeyModifiers = modifiers;
+              _hotkeyVirtualKey = virtualKey;
+
+              final modParts = <String>[];
+              if (modifiers & 0x01 != 0) modParts.add('Alt');
+              if (modifiers & 0x02 != 0) modParts.add('Ctrl');
+              if (modifiers & 0x04 != 0) modParts.add('Shift');
+              if (modifiers & 0x08 != 0) modParts.add('Win');
+              final keyName = _virtualKeyName(virtualKey);
+              _hotkeyLabel = '${modParts.join('+')}+$keyName';
+
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('确定'),
+          ),
+        ],
       ),
     );
+  }
+
+  /// 解析文本格式的快捷键，返回 (modifiers, virtualKey)，解析失败返回 null
+  (int, int)? _parseHotkeyText(String text) {
+    final parts = text.split('+').map((s) => s.trim()).toList();
+    if (parts.length < 2) return null;
+
+    int modifiers = 0;
+    String? keyPart;
+    final modSet = <String>{'ctrl', 'control', 'alt', 'shift', 'win', 'windows', 'meta'};
+
+    for (int i = 0; i < parts.length; i++) {
+      final lower = parts[i].toLowerCase();
+      if (modSet.contains(lower)) {
+        switch (lower) {
+          case 'ctrl':
+          case 'control':
+            modifiers |= 0x02;
+            break;
+          case 'alt':
+            modifiers |= 0x01;
+            break;
+          case 'shift':
+            modifiers |= 0x04;
+            break;
+          case 'win':
+          case 'windows':
+          case 'meta':
+            modifiers |= 0x08;
+            break;
+        }
+      } else {
+        // 非修饰键 — 必须是最后一个有意义的 part
+        if (i != parts.length - 1) return null;
+        keyPart = parts[i];
+      }
+    }
+
+    if (modifiers == 0 || keyPart == null || keyPart.isEmpty) return null;
+    final vk = _textToVk(keyPart);
+    if (vk == null) return null;
+
+    return (modifiers, vk);
+  }
+
+  /// 将键名转换为 Windows 虚拟键码
+  int? _textToVk(String key) {
+    final upper = key.toUpperCase();
+
+    // 单个字母 A-Z
+    if (upper.length == 1 && upper.codeUnitAt(0) >= 0x41 && upper.codeUnitAt(0) <= 0x5A) {
+      return upper.codeUnitAt(0);
+    }
+    // 数字 0-9
+    if (upper.length == 1 && upper.codeUnitAt(0) >= 0x30 && upper.codeUnitAt(0) <= 0x39) {
+      return upper.codeUnitAt(0);
+    }
+
+    // 命名键映射
+    const map = <String, int>{
+      'F1': 0x70, 'F2': 0x71, 'F3': 0x72, 'F4': 0x73,
+      'F5': 0x74, 'F6': 0x75, 'F7': 0x76, 'F8': 0x77,
+      'F9': 0x78, 'F10': 0x79, 'F11': 0x7A, 'F12': 0x7B,
+      'SPACE': 0x20, 'ENTER': 0x0D, 'RETURN': 0x0D, 'TAB': 0x09,
+      'ESC': 0x1B, 'ESCAPE': 0x1B,
+      'BACKSPACE': 0x08, 'DELETE': 0x2E, 'DEL': 0x2E, 'INSERT': 0x2D, 'INS': 0x2D,
+      'HOME': 0x24, 'END': 0x23,
+      'PAGEUP': 0x21, 'PGUP': 0x21, 'PAGEDOWN': 0x22, 'PGDN': 0x22,
+      'LEFT': 0x25, 'RIGHT': 0x27, 'UP': 0x26, 'DOWN': 0x28,
+      'MINUS': 0xBD, '-': 0xBD, 'EQUALS': 0xBB, '=': 0xBB,
+      'LBRACKET': 0xDB, '[': 0xDB, 'RBRACKET': 0xDD, ']': 0xDD,
+      'BACKSLASH': 0xDC, '\\': 0xDC,
+      'SEMICOLON': 0xBA, ';': 0xBA, 'QUOTE': 0xDE, "'": 0xDE,
+      'BACKTICK': 0xC0, '`': 0xC0,
+      'COMMA': 0xBC, ',': 0xBC, 'PERIOD': 0xBE, '.': 0xBE, 'SLASH': 0xBF, '/': 0xBF,
+    };
+    return map[upper];
   }
 
   String _virtualKeyName(int key) {
@@ -272,175 +392,4 @@ class _AddItemDialogState extends State<AddItemDialog> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// 热键录制对话框
-// 使用 Focus.onKeyEvent 替代 KeyboardListener，解决 Dialog 内焦点不可靠的问题
-// ---------------------------------------------------------------------------
-class _HotkeyRecorderDialog extends StatefulWidget {
-  final void Function(int modifiers, int virtualKey) onHotkeySet;
 
-  const _HotkeyRecorderDialog({required this.onHotkeySet});
-
-  @override
-  State<_HotkeyRecorderDialog> createState() => _HotkeyRecorderDialogState();
-}
-
-class _HotkeyRecorderDialogState extends State<_HotkeyRecorderDialog> {
-  final FocusNode _focusNode = FocusNode();
-  String _currentLabel = '请按下组合键 (如 Ctrl+Alt+A)';
-
-  @override
-  void initState() {
-    super.initState();
-    // Focus 在 Dialog 内需要构建完成后强制获取焦点
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('录制快捷键'),
-      content: SizedBox(
-        width: 320,
-        height: 120,
-        child: Focus(
-          focusNode: _focusNode,
-          autofocus: true,
-          onKeyEvent: _onKeyEvent,
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.blue, width: 2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(20),
-            alignment: Alignment.center,
-            child: Text(
-              _currentLabel,
-              style: const TextStyle(fontSize: 18),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-      ],
-    );
-  }
-
-  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-
-    final key = event.logicalKey;
-    final isAlt = HardwareKeyboard.instance.isAltPressed;
-    final isCtrl = HardwareKeyboard.instance.isControlPressed;
-    final isShift = HardwareKeyboard.instance.isShiftPressed;
-    final isMeta = HardwareKeyboard.instance.isMetaPressed;
-
-    // 忽略纯修饰键按下
-    if (key == LogicalKeyboardKey.altLeft ||
-        key == LogicalKeyboardKey.altRight ||
-        key == LogicalKeyboardKey.controlLeft ||
-        key == LogicalKeyboardKey.controlRight ||
-        key == LogicalKeyboardKey.shiftLeft ||
-        key == LogicalKeyboardKey.shiftRight ||
-        key == LogicalKeyboardKey.metaLeft ||
-        key == LogicalKeyboardKey.metaRight) {
-      return KeyEventResult.handled;
-    }
-
-    // 必须至少有一个修饰键
-    if (!isAlt && !isCtrl && !isShift && !isMeta) return KeyEventResult.ignored;
-
-    int modifiers = 0;
-    final parts = <String>[];
-    if (isAlt) {
-      modifiers |= 0x01;
-      parts.add('Alt');
-    }
-    if (isCtrl) {
-      modifiers |= 0x02;
-      parts.add('Ctrl');
-    }
-    if (isShift) {
-      modifiers |= 0x04;
-      parts.add('Shift');
-    }
-    if (isMeta) {
-      modifiers |= 0x08;
-      parts.add('Win');
-    }
-
-    // 转换到 Windows 虚拟键码
-    final virtualKey = _physicalToVk(event.physicalKey);
-    if (virtualKey == null) return KeyEventResult.ignored;
-
-    parts.add(_keyLabel(key));
-    _currentLabel = parts.join('+');
-
-    // 通知父对话框并关闭
-    widget.onHotkeySet(modifiers, virtualKey);
-    Navigator.of(context).pop();
-
-    return KeyEventResult.handled;
-  }
-
-  String _keyLabel(LogicalKeyboardKey key) {
-    if (key.keyLabel.isNotEmpty && key.keyLabel.length == 1) {
-      return key.keyLabel.toUpperCase();
-    }
-    // NOT const — LogicalKeyboardKey overrides ==/hashCode
-    final labels = <LogicalKeyboardKey, String>{
-      LogicalKeyboardKey.space: 'Space',
-      LogicalKeyboardKey.enter: 'Enter',
-      LogicalKeyboardKey.tab: 'Tab',
-      LogicalKeyboardKey.escape: 'Esc',
-      LogicalKeyboardKey.backspace: 'Backspace',
-      LogicalKeyboardKey.delete: 'Delete',
-      LogicalKeyboardKey.insert: 'Insert',
-      LogicalKeyboardKey.home: 'Home',
-      LogicalKeyboardKey.end: 'End',
-      LogicalKeyboardKey.pageUp: 'PageUp',
-      LogicalKeyboardKey.pageDown: 'PageDown',
-      LogicalKeyboardKey.arrowLeft: 'Left',
-      LogicalKeyboardKey.arrowRight: 'Right',
-      LogicalKeyboardKey.arrowUp: 'Up',
-      LogicalKeyboardKey.arrowDown: 'Down',
-    };
-    return labels[key] ?? key.debugName ?? '?';
-  }
-
-  /// Flutter PhysicalKeyboardKey (USB HID) → Windows VK 码
-  int? _physicalToVk(PhysicalKeyboardKey physical) {
-    final hid = physical.usbHidUsage;
-
-    // A-Z: HID 0x04-0x1D → VK 0x41-0x5A
-    if (hid >= 0x04 && hid <= 0x1D) return 0x41 + (hid - 0x04);
-    // 0-9: HID 0x1E-0x27 → VK 0x30-0x39
-    if (hid >= 0x1E && hid <= 0x27) return 0x30 + (hid - 0x1E);
-    // F1-F12: HID 0x3A-0x45 → VK 0x70-0x7B
-    if (hid >= 0x3A && hid <= 0x45) return 0x70 + (hid - 0x3A);
-
-    const special = <int, int>{
-      0x2C: 0x20, 0x2D: 0x2D, 0x2E: 0x3D, 0x2F: 0x5B, 0x30: 0x5D,
-      0x31: 0x5C, 0x33: 0x3B, 0x34: 0x27, 0x35: 0x60, 0x36: 0x2C,
-      0x37: 0x2E, 0x38: 0x2F,
-      0x4C: 0x2E, 0x4D: 0x2D, 0x4E: 0x24, 0x4F: 0x23, 0x50: 0x21,
-      0x51: 0x22, 0x52: 0x25, 0x53: 0x27, 0x54: 0x26, 0x55: 0x28,
-      0x62: 0x0D, 0x63: 0x09, 0x64: 0x20, 0x65: 0x2D, 0x66: 0x2E,
-      0x67: 0x25, 0x68: 0x26, 0x69: 0x27, 0x6A: 0x28,
-    };
-    return special[hid];
-  }
-}

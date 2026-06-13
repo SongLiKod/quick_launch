@@ -16,27 +16,24 @@ class LaunchService {
     try {
       switch (item.type) {
         case ItemType.executable:
-          await Process.start(item.targetPath, [],
-              runInShell: false,
-              workingDirectory: _parentDir(item.targetPath));
-          break;
-
         case ItemType.batScript:
-          await Process.start('cmd.exe', ['/c', item.targetPath],
-              runInShell: false,
-              workingDirectory: _parentDir(item.targetPath));
-          break;
-
         case ItemType.file:
-          // 用系统关联程序打开
-          await Process.run('cmd.exe', ['/c', 'start', '', item.targetPath],
-              runInShell: false);
+          // 使用 cmd.exe 的 start 命令，行为等同于在资源管理器中双击
+          // runInShell: true 让 cmd.exe 正确处理路径引号和空格
+          await Process.run(
+            'start',
+            ['""', item.targetPath],
+            runInShell: true,
+            workingDirectory: _parentDir(item.targetPath),
+          );
           break;
 
         case ItemType.folder:
-          // 用资源管理器打开
-          await Process.run('explorer.exe', [item.targetPath],
-              runInShell: false);
+          await Process.run(
+            'explorer.exe',
+            [item.targetPath],
+            runInShell: false,
+          );
           break;
 
         case ItemType.system:
