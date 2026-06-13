@@ -75,7 +75,7 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_HOTKEY:
       // Forward the hotkey ID (wParam) to the Dart side via MethodChannel.
       if (hotkey_channel_ != nullptr) {
-        hotkey_channel_->Invoke(
+        hotkey_channel_->InvokeMethod(
             "onHotkey",
             std::make_unique<flutter::EncodableValue>(
                 flutter::EncodableValue(static_cast<int>(wparam))));
