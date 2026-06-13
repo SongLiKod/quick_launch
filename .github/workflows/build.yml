@@ -35,8 +35,14 @@ jobs:
       - name: Package build artifact
         shell: pwsh
         run: |
-          # 将构建产物打包为 zip
-          Compress-Archive -Path build\windows\runner\Release\* -DestinationPath quick_launch_windows.zip
+          # Flutter Windows 构建产物在 build\windows\x64\runner\Release\
+          $releasePath = "build\windows\x64\runner\Release"
+          if (-not (Test-Path $releasePath)) {
+            # 32-bit fallback
+            $releasePath = "build\windows\runner\Release"
+          }
+          Write-Output "Packaging from: $releasePath"
+          Compress-Archive -Path "$releasePath\*" -DestinationPath quick_launch_windows.zip
           
           # 输出文件大小
           $file = Get-Item quick_launch_windows.zip
