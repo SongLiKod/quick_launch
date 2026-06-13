@@ -86,9 +86,11 @@ class _HomePageState extends State<HomePage> {
             return ReorderableListView.builder(
               padding: const EdgeInsets.only(top: 8, bottom: 80),
               itemCount: list.length,
+              buildDefaultDragHandles: false,
               itemBuilder: (_, i) => ItemTile(
                 key: ValueKey(list[i].id),
                 item: list[i],
+                index: i,
               ),
               onReorderItem: (oldIndex, newIndex) {
                 _itemService.reorderItem(oldIndex, newIndex);

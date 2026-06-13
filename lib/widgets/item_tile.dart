@@ -7,8 +7,9 @@ import 'add_item_dialog.dart';
 
 class ItemTile extends StatelessWidget {
   final LaunchItem item;
+  final int? index;
 
-  const ItemTile({super.key, required this.item});
+  const ItemTile({super.key, required this.item, this.index});
 
   void _onEdit(BuildContext context) async {
     final result = await showDialog<LaunchItem>(
@@ -65,6 +66,14 @@ class ItemTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
+            if (index != null)
+              ReorderableDragStartListener(
+                index: index!,
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(Icons.drag_handle, color: Colors.grey),
+                ),
+              ),
             _buildIcon(),
             const SizedBox(width: 12),
             Expanded(
