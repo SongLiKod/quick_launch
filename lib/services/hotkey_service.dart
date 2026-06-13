@@ -1,4 +1,5 @@
 import 'package:win32/win32.dart';
+import 'package:flutter/foundation.dart';
 import '../models/launch_item.dart';
 import 'launch_service.dart';
 
@@ -37,7 +38,7 @@ class HotkeyService {
       item.hotkeyVirtualKey!,
     );
     if (result == 0) {
-      print(
+      debugPrint(
           'RegisterHotKey failed for ${item.name}, error: ${GetLastError()}');
     }
   }

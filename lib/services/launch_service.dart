@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import '../models/launch_item.dart';
 import 'system_commands.dart';
 
@@ -35,7 +36,7 @@ class LaunchService {
           SystemCommands.execute(item.targetPath);
       }
     } catch (e) {
-      print('Failed to launch ${item.name}: $e');
+      debugPrint('Failed to launch ${item.name}: $e');
     }
   }
 
