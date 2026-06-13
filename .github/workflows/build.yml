@@ -1,5 +1,8 @@
 name: Build Windows Release
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main, master]
@@ -55,7 +58,7 @@ jobs:
           path: quick_launch_windows.zip
           if-no-files-found: error
 
-  # 当推送 tag (v1.0.0 或 1.0.0) 时自动附加构建产物到 Release
+  # 当推送 tag (v1.0.0 或 1.0.0) 时自动上传产物到 Release
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
@@ -69,11 +72,8 @@ jobs:
         with:
           name: quick_launch_windows
 
-      - name: Upload to Release
-        uses: ncipollo/release-action@v1
-        with:
-          allowUpdates: true
-          omitBodyDuringUpdate: true
-          omitPrereleaseDuringUpdate: true
-          artifacts: quick_launch_windows.zip
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload to Release via gh CLI
+        run: |
+          gh release upload "${{ github.ref_name }}" quick_launch_windows.zip --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
