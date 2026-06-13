@@ -40,9 +40,10 @@ class LaunchService {
           break;
 
         case ItemType.command:
+          // 在新 CMD 窗口中运行命令，执行后保持窗口不关闭以便查看输出
           await Process.run(
-            'cmd',
-            ['/c', item.targetPath],
+            'start',
+            ['""', 'cmd', '/k', item.targetPath],
             runInShell: true,
           );
           break;
