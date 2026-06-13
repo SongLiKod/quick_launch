@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/launch_item.dart';
 import '../services/item_service.dart';
+import '../services/hotkey_service.dart';
 import '../services/launch_service.dart';
 import '../services/system_commands.dart';
 import '../widgets/item_tile.dart';
@@ -23,6 +24,9 @@ class _HomePageState extends State<HomePage> {
     );
     if (result != null) {
       _itemService.addItem(result);
+      if (result.hotkeyVirtualKey != null) {
+        HotkeyService().registerItemHotkey(result);
+      }
     }
   }
 
