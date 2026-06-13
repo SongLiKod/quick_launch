@@ -5,7 +5,109 @@ import 'package:file_picker/file_picker.dart';
 import 'package:win32/win32.dart';
 import '../services/settings_service.dart';
 import '../services/item_service.dart';
+import '../services/hotkey_service.dart';
 import 'logs_page.dart';
+
+/// 将快捷键修饰键和虚拟键码转为可读文本
+String formatHotkeyLabel(int? modifiers, int? virtualKey) {
+  if (modifiers == null || virtualKey == null) return '未设置';
+  final parts = <String>[];
+  if (modifiers & 0x01 != 0) parts.add('Alt');
+  if (modifiers & 0x02 != 0) parts.add('Ctrl');
+  if (modifiers & 0x04 != 0) parts.add('Shift');
+  if (modifiers & 0x08 != 0) parts.add('Win');
+  parts.add(_vkName(virtualKey));
+  return parts.join('+');
+}
+
+String _vkName(int key) {
+  const map = <int, String>{
+    0x08: 'Backspace', 0x09: 'Tab', 0x0D: 'Enter', 0x1B: 'Esc',
+    0x20: 'Space', 0x21: 'PageUp', 0x22: 'PageDown', 0x23: 'End',
+    0x24: 'Home', 0x25: 'Left', 0x26: 'Up', 0x27: 'Right', 0x28: 'Down',
+    0x2D: 'Insert', 0x2E: 'Delete',
+    0x30: '0', 0x31: '1', 0x32: '2', 0x33: '3', 0x34: '4',
+    0x35: '5', 0x36: '6', 0x37: '7', 0x38: '8', 0x39: '9',
+    0x41: 'A', 0x42: 'B', 0x43: 'C', 0x44: 'D', 0x45: 'E',
+    0x46: 'F', 0x47: 'G', 0x48: 'H', 0x49: 'I', 0x4A: 'J',
+    0x4B: 'K', 0x4C: 'L', 0x4D: 'M', 0x4E: 'N', 0x4F: 'O',
+    0x50: 'P', 0x51: 'Q', 0x52: 'R', 0x53: 'S', 0x54: 'T',
+    0x55: 'U', 0x56: 'V', 0x57: 'W', 0x58: 'X', 0x59: 'Y', 0x5A: 'Z',
+    0x70: 'F1', 0x71: 'F2', 0x72: 'F3', 0x73: 'F4', 0x74: 'F5',
+    0x75: 'F6', 0x76: 'F7', 0x77: 'F8', 0x78: 'F9', 0x79: 'F10',
+    0x7A: 'F11', 0x7B: 'F12',
+  };
+  return map[key] ?? '0x${key.toRadixString(16).toUpperCase()}';
+}
+
+/// 解析用户输入的快捷键文本（如 Ctrl+Alt+A），返回 (modifiers, virtualKey)
+(int, int)? parseHotkeyText(String text) {
+  final parts = text.split('+').map((s) => s.trim()).toList();
+  if (parts.length < 2) return null;
+  int modifiers = 0;
+  String? keyPart;
+
+  for (int i = 0; i < parts.length; i++) {
+    final lower = parts[i].toLowerCase();
+    if (['ctrl', 'control', 'alt', 'shift', 'win', 'windows', 'meta']
+        .contains(lower)) {
+      switch (lower) {
+        case 'ctrl':
+        case 'control':
+          modifiers |= 0x02;
+          break;
+        case 'alt':
+          modifiers |= 0x01;
+          break;
+        case 'shift':
+          modifiers |= 0x04;
+          break;
+        case 'win':
+        case 'windows':
+        case 'meta':
+          modifiers |= 0x08;
+          break;
+      }
+    } else {
+      if (i != parts.length - 1) return null;
+      keyPart = parts[i];
+    }
+  }
+  if (modifiers == 0 || keyPart == null || keyPart.isEmpty) return null;
+  final vk = _textToVk(keyPart);
+  if (vk == null) return null;
+  return (modifiers, vk);
+}
+
+int? _textToVk(String key) {
+  final upper = key.toUpperCase();
+  if (upper.length == 1 && upper.codeUnitAt(0) >= 0x41 &&
+      upper.codeUnitAt(0) <= 0x5A) {
+    return upper.codeUnitAt(0);
+  }
+  if (upper.length == 1 && upper.codeUnitAt(0) >= 0x30 &&
+      upper.codeUnitAt(0) <= 0x39) {
+    return upper.codeUnitAt(0);
+  }
+  const map = <String, int>{
+    'F1': 0x70, 'F2': 0x71, 'F3': 0x72, 'F4': 0x73, 'F5': 0x74,
+    'F6': 0x75, 'F7': 0x76, 'F8': 0x77, 'F9': 0x78, 'F10': 0x79,
+    'F11': 0x7A, 'F12': 0x7B,
+    'SPACE': 0x20, 'ENTER': 0x0D, 'RETURN': 0x0D, 'TAB': 0x09,
+    'ESC': 0x1B, 'ESCAPE': 0x1B,
+    'BACKSPACE': 0x08, 'DELETE': 0x2E, 'DEL': 0x2E, 'INSERT': 0x2D, 'INS': 0x2D,
+    'HOME': 0x24, 'END': 0x23,
+    'PAGEUP': 0x21, 'PGUP': 0x21, 'PAGEDOWN': 0x22, 'PGDN': 0x22,
+    'LEFT': 0x25, 'RIGHT': 0x27, 'UP': 0x26, 'DOWN': 0x28,
+    'MINUS': 0xBD, '-': 0xBD, 'EQUALS': 0xBB, '=': 0xBB,
+    'LBRACKET': 0xDB, '[': 0xDB, 'RBRACKET': 0xDD, ']': 0xDD,
+    'BACKSLASH': 0xDC, '\\': 0xDC,
+    'SEMICOLON': 0xBA, ';': 0xBA, 'QUOTE': 0xDE, "'": 0xDE,
+    'BACKTICK': 0xC0, '`': 0xC0,
+    'COMMA': 0xBC, ',': 0xBC, 'PERIOD': 0xBE, '.': 0xBE, 'SLASH': 0xBF, '/': 0xBF,
+  };
+  return map[upper];
+}
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -75,6 +177,8 @@ class SettingsPage extends StatelessWidget {
             onChanged: (v) => service.setAutoStart(v),
           ),
           if (service.autoStart.value) _startupDelayTile(context, service),
+          // 显示窗口快捷键
+          _showWindowHotkeyTile(context, service),
           const Divider(height: 1),
 
           // ===== 列表管理 =====
@@ -129,6 +233,107 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
+  // ---------- 显示窗口快捷键 ----------
+
+  Widget _showWindowHotkeyTile(BuildContext context, SettingsService service) {
+    return ValueListenableBuilder<int?>(
+      valueListenable: service.showWindowModifiers,
+      builder: (_, mods, _) {
+        final key = service.showWindowKey.value;
+        final label = formatHotkeyLabel(mods, key);
+        return ListTile(
+          leading: const Icon(Icons.keyboard),
+          title: const Text('显示窗口快捷键'),
+          subtitle: Text(
+            label == '未设置' ? '未设置' : '按 $label 显示主窗口',
+          ),
+          trailing: TextButton(
+            onPressed: () => _editShowWindowHotkey(context, service),
+            child: Text(key == null ? '设置' : '修改'),
+          ),
+        );
+      },
+    );
+  }
+
+  void _editShowWindowHotkey(BuildContext context, SettingsService service) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('显示窗口快捷键'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('输入快捷键组合，例如：'),
+            const SizedBox(height: 8),
+            Text(
+              '  Ctrl+Shift+Q\n  Ctrl+Alt+W\n  Win+Space',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '快捷键',
+                hintText: 'Ctrl+Shift+Q',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              service.setShowWindowHotkey(null, null);
+              HotkeyService().unregisterShowWindowHotkey();
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('已清除显示窗口快捷键')),
+              );
+            },
+            child: const Text('清除', style: TextStyle(color: Colors.red)),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+
+              final result = parseHotkeyText(text);
+              if (result == null) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('无效格式，请使用 Ctrl+Alt+A 格式')),
+                );
+                return;
+              }
+              final (modifiers, vk) = result;
+
+              // 注册新热键（先注销旧的）
+              HotkeyService().unregisterShowWindowHotkey();
+              HotkeyService().registerShowWindowHotkey(modifiers, vk);
+              service.setShowWindowHotkey(modifiers, vk);
+
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('显示窗口快捷键已设为 ${formatHotkeyLabel(modifiers, vk)}'),
+                ),
+              );
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- 其他 ----------
+
   Future<void> _exportConfig(BuildContext context) async {
     final path = await FilePicker.saveFile(
       dialogTitle: '导出配置',
@@ -137,7 +342,6 @@ class SettingsPage extends StatelessWidget {
       allowedExtensions: ['json'],
     );
     if (path == null) return;
-
     try {
       final json = ItemService().exportToJson();
       await File(path).writeAsString(json);
@@ -160,9 +364,9 @@ class SettingsPage extends StatelessWidget {
       allowedExtensions: ['json'],
     );
     if (result == null || result.files.single.path == null) return;
-
     try {
-      final count = await ItemService().importFromFile(result.files.single.path!);
+      final count =
+          await ItemService().importFromFile(result.files.single.path!);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('成功导入 $count 个启动项')),
@@ -174,8 +378,6 @@ class SettingsPage extends StatelessWidget {
       );
     }
   }
-
-  // ---------- 组件 ----------
 
   Widget _sectionHeader(BuildContext context, String title) {
     return Padding(
@@ -193,15 +395,14 @@ class SettingsPage extends StatelessWidget {
   Widget _themeTile(BuildContext context, SettingsService service) {
     final icons = [Icons.light_mode, Icons.dark_mode, Icons.settings_brightness];
     final modes = [ThemeMode.light, ThemeMode.dark, ThemeMode.system];
-
     return ListTile(
       leading: const Icon(Icons.palette),
       title: const Text('主题模式'),
-      subtitle: Text(['浅色', '深色', '跟随系统'][modes.indexOf(service.themeMode.value)]),
+      subtitle: Text(
+          ['浅色', '深色', '跟随系统'][modes.indexOf(service.themeMode.value)]),
       trailing: SegmentedButton<ThemeMode>(
-        segments: List.generate(3, (i) =>
-          ButtonSegment(value: modes[i], icon: Icon(icons[i], size: 18)),
-        ),
+        segments: List.generate(3,
+            (i) => ButtonSegment(value: modes[i], icon: Icon(icons[i], size: 18))),
         selected: {service.themeMode.value},
         onSelectionChanged: (s) => service.setThemeMode(s.first),
       ),
@@ -211,18 +412,14 @@ class SettingsPage extends StatelessWidget {
   Widget _sortModeTile(BuildContext context, SettingsService service) {
     const labels = ['手动', '按名称', '按创建时间'];
     const modes = [SortMode.manual, SortMode.name, SortMode.created];
-
     return ListTile(
       leading: const Icon(Icons.sort),
       title: const Text('排序方式'),
       subtitle: Text(labels[modes.indexOf(service.sortMode.value)]),
       trailing: SegmentedButton<SortMode>(
-        segments: List.generate(3, (i) =>
-          ButtonSegment(
-            value: modes[i],
-            label: Text(labels[i], style: const TextStyle(fontSize: 12)),
-          ),
-        ),
+        segments: List.generate(3,
+            (i) => ButtonSegment(
+                value: modes[i], label: Text(labels[i], style: const TextStyle(fontSize: 12)))),
         selected: {service.sortMode.value},
         onSelectionChanged: (s) {
           service.setSortMode(s.first);

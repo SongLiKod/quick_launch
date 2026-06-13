@@ -16,7 +16,7 @@ const MethodChannel _settingsChannel = MethodChannel('quick_launch/settings');
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Load saved settings, items, and log
+  // 1. Load settings, items, logs
   await SettingsService().load();
   await ItemService().load();
   await LaunchLogService().load();
@@ -24,16 +24,16 @@ void main() async {
   // 2. Run the app
   runApp(const QuickLaunchApp());
 
-  // 3. Wait for the window to be ready
+  // 3. Wait for window ready
   await WidgetsBinding.instance.endOfFrame;
 
-  // 4. Set native window handle for hotkey registration
+  // 4. Set native window handle for hotkey
   final hWnd = appWindow.handle;
   if (hWnd != null) {
     HotkeyService().setWindowHandle(hWnd);
   }
 
-  // 5. Register all previously saved hotkeys
+  // 5. Register all item hotkeys
   for (final item in ItemService().items.value) {
     if (item.hotkeyVirtualKey != null) {
       HotkeyService().registerItemHotkey(item);
@@ -50,18 +50,38 @@ void main() async {
     return null;
   });
 
-  // 7. Sync settings to native side
+  // 7. Setup callback: when show-window hotkey fires, bring window to front
+  HotkeyService().onShowWindow = () => appWindow.show();
+
+  // 8. Register show-window hotkey if configured
+  final showMods = SettingsService().showWindowModifiers.value;
+  final showKey = SettingsService().showWindowKey.value;
+  if (showMods != null && showKey != null) {
+    HotkeyService().registerShowWindowHotkey(showMods, showKey);
+  }
+
+  // 9. Listen for show-window hotkey changes from settings
+  SettingsService().showWindowModifiers.addListener(() {
+    HotkeyService().unregisterShowWindowHotkey();
+    final m = SettingsService().showWindowModifiers.value;
+    final k = SettingsService().showWindowKey.value;
+    if (m != null && k != null) {
+      HotkeyService().registerShowWindowHotkey(m, k);
+    }
+  });
+
+  // 10. Sync settings to native
   await _syncSettingsToNative();
 
-  // 8. Init system tray
+  // 11. Init system tray
   await _initSystemTray();
 
-  // 9. Apply always-on-top
+  // 12. Apply always-on-top
   if (SettingsService().alwaysOnTop.value) {
     _setTopmost(true);
   }
 
-  // 10. Hide on startup (do this last so window doesn't flash)
+  // 13. Hide on startup (last so no flash)
   if (SettingsService().hideOnStartup.value) {
     appWindow.hide();
   }
@@ -70,8 +90,8 @@ void main() async {
 void _setTopmost(bool on) {
   final hwnd = appWindow.handle;
   if (hwnd != null) {
-    SetWindowPos(hwnd, on ? HWND_TOPMOST : HWND_NOTOPMOST,
-        0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    SetWindowPos(hwnd, on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+        SWP_NOMOVE | SWP_NOSIZE);
   }
 }
 
@@ -80,7 +100,6 @@ Future<void> _syncSettingsToNative() async {
     'setMinimizeToTray',
     SettingsService().minimizeToTray.value,
   );
-
   SettingsService().minimizeToTray.addListener(() {
     _settingsChannel.invokeMethod(
       'setMinimizeToTray',

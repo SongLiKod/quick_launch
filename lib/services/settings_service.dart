@@ -14,10 +14,12 @@ class SettingsService {
   final ValueNotifier<bool> alwaysOnTop = ValueNotifier(false);
   final ValueNotifier<bool> minimizeToTray = ValueNotifier(true);
   final ValueNotifier<bool> autoStart = ValueNotifier(false);
-  // 新增设置
   final ValueNotifier<bool> hideOnStartup = ValueNotifier(false);
   final ValueNotifier<int> startupDelay = ValueNotifier(0);
   final ValueNotifier<SortMode> sortMode = ValueNotifier(SortMode.manual);
+  // 显示窗口快捷键
+  final ValueNotifier<int?> showWindowModifiers = ValueNotifier(null);
+  final ValueNotifier<int?> showWindowKey = ValueNotifier(null);
 
   late SharedPreferences _prefs;
 
@@ -28,6 +30,8 @@ class SettingsService {
   static const _kHideOnStartup = 'hide_on_startup';
   static const _kStartupDelay = 'startup_delay';
   static const _kSortMode = 'sort_mode';
+  static const _kShowWindowModifiers = 'show_window_modifiers';
+  static const _kShowWindowKey = 'show_window_key';
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -38,6 +42,11 @@ class SettingsService {
     hideOnStartup.value = _prefs.getBool(_kHideOnStartup) ?? false;
     startupDelay.value = _prefs.getInt(_kStartupDelay) ?? 0;
     sortMode.value = _parseSort(_prefs.getString(_kSortMode));
+    // 注意：int? 存储为 int，默认 -1 表示 null
+    final swm = _prefs.getInt(_kShowWindowModifiers);
+    showWindowModifiers.value = (swm != null && swm >= 0) ? swm : null;
+    final swk = _prefs.getInt(_kShowWindowKey);
+    showWindowKey.value = (swk != null && swk >= 0) ? swk : null;
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -69,7 +78,6 @@ class SettingsService {
   Future<void> setStartupDelay(int seconds) async {
     startupDelay.value = seconds;
     await _prefs.setInt(_kStartupDelay, seconds);
-    // 如果开机自启已开启，更新注册表
     if (autoStart.value) {
       _applyAutoStart(true, seconds);
     }
@@ -80,12 +88,18 @@ class SettingsService {
     await _prefs.setString(_kSortMode, _stringifySort(mode));
   }
 
+  Future<void> setShowWindowHotkey(int? modifiers, int? key) async {
+    showWindowModifiers.value = modifiers;
+    showWindowKey.value = key;
+    await _prefs.setInt(_kShowWindowModifiers, modifiers ?? -1);
+    await _prefs.setInt(_kShowWindowKey, key ?? -1);
+  }
+
   /// 写入/删除开机自启注册表，含延迟
   static void _applyAutoStart(bool enable, int delaySec) {
     final keyPath = r'HKCU\Software\Microsoft\Windows\CurrentVersion\Run';
     final exePath = Platform.resolvedExecutable;
     if (enable) {
-      // 有延迟则用 timeout 命令，无延迟直接启动
       final cmd = delaySec > 0
           ? 'cmd /c timeout /t $delaySec /nobreak >nul & start "" "$exePath"'
           : '"$exePath"';
