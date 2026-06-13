@@ -71,12 +71,20 @@ class ItemTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      _buildTypeLabel(),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          item.name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -144,6 +152,30 @@ class ItemTile extends StatelessWidget {
       case ItemType.link:
         return const Icon(Icons.link, color: Colors.blue);
     }
+  }
+
+  Widget _buildTypeLabel() {
+    final (label, color) = switch (item.type) {
+      ItemType.executable => ('应用', Colors.blue),
+      ItemType.batScript => ('脚本', Colors.orange),
+      ItemType.file => ('文件', Colors.grey),
+      ItemType.folder => ('文件夹', Colors.amber),
+      ItemType.system => ('系统', Colors.red),
+      ItemType.command => ('命令', Colors.teal),
+      ItemType.link => ('链接', Colors.blue),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, color: color, height: 1.3),
+      ),
+    );
   }
 
   Widget _buildHotkeyBadge() {

@@ -413,8 +413,8 @@ class SettingsPage extends StatelessWidget {
   }
 
   Widget _sortModeTile(BuildContext context, SettingsService service) {
-    const labels = ['手动', '按名称', '按创建时间'];
-    const modes = [SortMode.manual, SortMode.name, SortMode.created];
+    const labels = ['手动', '按名称', '按创建时间', '按类型'];
+    const modes = [SortMode.manual, SortMode.name, SortMode.created, SortMode.type];
     return ValueListenableBuilder<SortMode>(
       valueListenable: service.sortMode,
       builder: (_, mode, _) => ListTile(
@@ -422,7 +422,7 @@ class SettingsPage extends StatelessWidget {
         title: const Text('排序方式'),
         subtitle: Text(labels[modes.indexOf(mode)]),
         trailing: SegmentedButton<SortMode>(
-          segments: List.generate(3,
+          segments: List.generate(4,
               (i) => ButtonSegment(
                   value: modes[i], label: Text(labels[i], style: const TextStyle(fontSize: 12)))),
           selected: {mode},

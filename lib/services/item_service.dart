@@ -73,6 +73,8 @@ class ItemService {
       list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     } else if (mode == SortMode.created) {
       list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    } else if (mode == SortMode.type) {
+      list.sort((a, b) => a.type.name.compareTo(b.type.name));
     }
     items.value = list;
   }

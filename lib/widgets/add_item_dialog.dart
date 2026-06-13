@@ -92,9 +92,9 @@ class _AddItemDialogState extends State<AddItemDialog> {
     }
   }
 
-  void _startHotkeyRecording() {
+  Future<void> _startHotkeyRecording() async {
     final controller = TextEditingController();
-    showDialog(
+    await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('设置快捷键'),
@@ -178,6 +178,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
         ],
       ),
     );
+    setState(() {});
   }
 
   (int, int)? _parseHotkeyText(String text) {
