@@ -22,7 +22,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
   int? _hotkeyVirtualKey;
   late String _hotkeyLabel;
   late ItemType _detectedType;
-  late bool _isCommandMode;
+  late String _mode; // 'file', 'command', 'link'
 
   bool get _isEditing => widget.item != null;
   String? _conflictHint; // 快捷键冲突提示
@@ -37,7 +37,11 @@ class _AddItemDialogState extends State<AddItemDialog> {
     _hotkeyModifiers = existing?.hotkeyModifiers;
     _hotkeyVirtualKey = existing?.hotkeyVirtualKey;
     _detectedType = existing?.type ?? ItemType.file;
-    _isCommandMode = existing?.type == ItemType.command;
+    _mode = existing?.type == ItemType.command
+        ? 'command'
+        : existing?.type == ItemType.link
+            ? 'link'
+            : 'file';
 
     if (existing?.hotkeyVirtualKey != null) {
       final mods = <String>[];
@@ -340,7 +344,11 @@ class _AddItemDialogState extends State<AddItemDialog> {
       id: _isEditing ? widget.item!.id : const Uuid().v4(),
       name: _nameController.text.trim(),
       targetPath: _pathController.text.trim(),
-      type: _isCommandMode ? ItemType.command : _detectedType,
+      type: _mode == 'command'
+          ? ItemType.command
+          : _mode == 'link'
+              ? ItemType.link
+              : _detectedType,
       hotkeyModifiers: _hotkeyModifiers,
       hotkeyVirtualKey: _hotkeyVirtualKey,
       runAsAdmin: _runAsAdmin,
@@ -351,13 +359,17 @@ class _AddItemDialogState extends State<AddItemDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final typeLabel = switch (_isCommandMode ? ItemType.command : _detectedType) {
-      ItemType.executable => '应用程序',
-      ItemType.batScript => '脚本',
-      ItemType.file => '文件',
-      ItemType.folder => '文件夹',
-      ItemType.system => '系统命令',
-      ItemType.command => '命令',
+    final typeLabel = switch (_mode) {
+      'command' => '命令',
+      'link' => '链接',
+      _ => switch (_detectedType) {
+        ItemType.executable => '应用程序',
+        ItemType.batScript => '脚本',
+        ItemType.file => '文件',
+        ItemType.folder => '文件夹',
+        ItemType.system => '系统命令',
+        _ => '文件',
+      },
     };
 
     return AlertDialog(
@@ -379,10 +391,18 @@ class _AddItemDialogState extends State<AddItemDialog> {
             TextField(
               controller: _pathController,
               decoration: InputDecoration(
-                labelText: _isCommandMode ? '命令' : '路径',
-                hintText: _isCommandMode ? '输入命令 (如: ipconfig /all)' : '选择文件、文件夹或输入命令',
+                labelText: _mode == 'command'
+                    ? '命令'
+                    : _mode == 'link'
+                        ? '链接'
+                        : '路径',
+                hintText: _mode == 'command'
+                    ? '输入命令 (如: ipconfig /all)'
+                    : _mode == 'link'
+                        ? '输入链接 (如: https://www.baidu.com)'
+                        : '选择文件或文件夹',
                 border: const OutlineInputBorder(),
-                suffixIcon: !_isCommandMode
+                suffixIcon: _mode == 'file'
                     ? Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -406,11 +426,11 @@ class _AddItemDialogState extends State<AddItemDialog> {
               children: [
                 ChoiceChip(
                   label: const Text('文件/文件夹'),
-                  selected: !_isCommandMode,
+                  selected: _mode == 'file',
                   onSelected: (selected) {
                     if (selected) {
                       setState(() {
-                        _isCommandMode = false;
+                        _mode = 'file';
                         _detectedType = PathUtil.detectType(_pathController.text);
                       });
                     }
@@ -419,12 +439,25 @@ class _AddItemDialogState extends State<AddItemDialog> {
                 const SizedBox(width: 8),
                 ChoiceChip(
                   label: const Text('命令'),
-                  selected: _isCommandMode,
+                  selected: _mode == 'command',
                   onSelected: (selected) {
                     if (selected) {
                       setState(() {
-                        _isCommandMode = true;
+                        _mode = 'command';
                         _detectedType = ItemType.command;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('链接'),
+                  selected: _mode == 'link',
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _mode = 'link';
+                        _detectedType = ItemType.link;
                       });
                     }
                   },

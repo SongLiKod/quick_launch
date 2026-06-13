@@ -141,6 +141,8 @@ class ItemTile extends StatelessWidget {
         return const Icon(Icons.power_settings_new, color: Colors.red);
       case ItemType.command:
         return const Icon(Icons.terminal, color: Colors.teal);
+      case ItemType.link:
+        return const Icon(Icons.link, color: Colors.blue);
     }
   }
 

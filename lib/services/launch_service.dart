@@ -47,6 +47,15 @@ class LaunchService {
             runInShell: true,
           );
           break;
+
+        case ItemType.link:
+          // 用默认浏览器打开链接
+          await Process.run(
+            'start',
+            ['""', item.targetPath],
+            runInShell: true,
+          );
+          break;
       }
 
       LaunchLogService().addLog(LaunchLogEntry(
