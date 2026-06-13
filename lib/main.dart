@@ -51,7 +51,13 @@ void main() async {
   });
 
   // 7. Setup callback: when show-window hotkey fires, bring window to front
-  HotkeyService().onShowWindow = () => appWindow.show();
+  HotkeyService().onShowWindow = () {
+    final hwnd = appWindow.handle;
+    if (hwnd != null) {
+      ShowWindow(hwnd, SW_RESTORE);
+      SetForegroundWindow(hwnd);
+    }
+  };
 
   // 8. Register show-window hotkey if configured
   final showMods = SettingsService().showWindowModifiers.value;
@@ -139,6 +145,8 @@ Future<void> _initSystemTray() async {
   systemTray.registerSystemTrayEventHandler((event) {
     if (event == kSystemTrayEventClick) {
       appWindow.show();
+    } else if (event == kSystemTrayEventRightClick) {
+      systemTray.popUpContextMenu();
     }
   });
 }
