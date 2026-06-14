@@ -100,6 +100,8 @@ class SettingsService {
   }
 
   Future<void> setCustomIconPath(String? path) async {
+    // 不保存空路径，避免启动时 File() 构造异常
+    if (path != null && path.trim().isEmpty) path = null;
     customIconPath.value = path;
     if (path != null) {
       await _prefs.setString(_kCustomIconPath, path);
