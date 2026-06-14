@@ -7,8 +7,9 @@ class UpdateService {
   factory UpdateService() => _instance;
   UpdateService._internal();
 
-  /// 当前版本号（从 pubspec.yaml version 字段读取）
-  static const String currentVersion = '1.0.0';
+  /// 当前版本号（编译时从 pubspec.yaml 注入，无注入时 fallback）
+  static const String currentVersion =
+      String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0');
 
   /// 最新版本号（从 GitHub 获取）
   String? latestVersion;

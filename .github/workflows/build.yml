@@ -29,11 +29,19 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Extract version from pubspec.yaml
+        id: version
+        shell: pwsh
+        run: |
+          $raw = (Select-String -Path pubspec.yaml -Pattern '^version:\s+' | Select-Object -First 1).Line
+          $ver = ($raw -replace '^version:\s+', '') -replace '\+.*$', ''
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
 
       - name: Build Windows release
-        run: flutter build windows --release
+        run: flutter build windows --release --dart-define=APP_VERSION=${{ steps.version.outputs.version }}
 
       - name: Package build artifact
         shell: pwsh

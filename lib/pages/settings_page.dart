@@ -6,6 +6,7 @@ import 'package:win32/win32.dart';
 import '../services/settings_service.dart';
 import '../services/item_service.dart';
 import '../services/hotkey_service.dart';
+import '../services/update_service.dart';
 import 'logs_page.dart';
 
 /// 将快捷键修饰键和虚拟键码转为可读文本
@@ -226,7 +227,7 @@ class SettingsPage extends StatelessWidget {
             leading: const Icon(Icons.info_outline),
             title: const Text('版本'),
             trailing: Text(
-              '1.0.0',
+              UpdateService.currentVersion,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
