@@ -18,16 +18,22 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final ItemService _itemService = ItemService();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     SettingsService().sortMode.addListener(_onSortModeChanged);
+    _searchController.addListener(() {
+      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+    });
   }
 
   @override
   void dispose() {
     SettingsService().sortMode.removeListener(_onSortModeChanged);
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -62,7 +68,37 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('快速启动'),
+        title: Row(
+          children: [
+            const Text('快速启动'),
+            const SizedBox(width: 16),
+            Expanded(
+              child: SizedBox(
+                height: 36,
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索...',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: () {
+                              _searchController.clear();
+                            },
+                          )
+                        : null,
+                  ),
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -82,16 +118,22 @@ class _HomePageState extends State<HomePage> {
       body: ValueListenableBuilder<List<LaunchItem>>(
         valueListenable: _itemService.items,
         builder: (_, list, _) {
-          if (list.isEmpty) {
-            return const Center(
+          final filtered = _searchQuery.isEmpty
+              ? list
+              : list.where((item) =>
+                  item.name.toLowerCase().contains(_searchQuery) ||
+                  item.targetPath.toLowerCase().contains(_searchQuery)).toList();
+
+          if (filtered.isEmpty) {
+            return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.launch, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
+                  Icon(Icons.search_off, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
                   Text(
-                    '点击右下角 + 添加启动项',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    _searchQuery.isNotEmpty ? '没有匹配的启动项' : '点击右下角 + 添加启动项',
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                 ],
               ),
@@ -101,11 +143,11 @@ class _HomePageState extends State<HomePage> {
           if (enableDrag) {
             return ReorderableListView.builder(
               padding: const EdgeInsets.only(top: 8, bottom: 80),
-              itemCount: list.length,
+              itemCount: filtered.length,
               buildDefaultDragHandles: false,
               itemBuilder: (_, i) => ItemTile(
-                key: ValueKey(list[i].id),
-                item: list[i],
+                key: ValueKey(filtered[i].id),
+                item: filtered[i],
                 index: i,
               ),
               onReorderItem: (oldIndex, newIndex) {
@@ -116,10 +158,10 @@ class _HomePageState extends State<HomePage> {
 
           return ListView.builder(
             padding: const EdgeInsets.only(top: 8, bottom: 80),
-            itemCount: list.length,
+            itemCount: filtered.length,
             itemBuilder: (_, i) => ItemTile(
-              key: ValueKey(list[i].id),
-              item: list[i],
+              key: ValueKey(filtered[i].id),
+              item: filtered[i],
             ),
           );
         },
