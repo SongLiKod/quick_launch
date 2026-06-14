@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
@@ -86,15 +87,33 @@ void main() async {
   // 10. Sync settings to native
   await _syncSettingsToNative();
 
-  // 11. Init system tray
+  // 11. Init system tray (use custom icon if configured)
   await _initSystemTray();
 
-  // 12. Apply always-on-top
+  // 12. Apply custom app icon (window title bar + taskbar)
+  final customIcon = SettingsService().customIconPath.value;
+  if (customIcon != null && File(customIcon).existsSync()) {
+    await _settingsChannel.invokeMethod('setAppIcon', customIcon);
+  }
+
+  // Listen for custom icon changes (from settings) → update tray icon live
+  SettingsService().customIconPath.addListener(() async {
+    final newPath = SettingsService().customIconPath.value;
+    if (newPath != null && File(newPath).existsSync()) {
+      await systemTray.setSystemTrayInfo(iconPath: newPath);
+    } else {
+      // Restore default tray icon
+      final defaultIcon = await TrayIconHelper.saveIconToFile();
+      await systemTray.setSystemTrayInfo(iconPath: defaultIcon);
+    }
+  });
+
+  // 13. Apply always-on-top
   if (SettingsService().alwaysOnTop.value) {
     _setTopmost(true);
   }
 
-  // 13. Check for updates (async, non-blocking)
+  // 14. Check for updates (async, non-blocking)
   if (await UpdateService().checkForUpdate()) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = navigatorKey.currentContext;
@@ -104,7 +123,7 @@ void main() async {
     });
   }
 
-  // 14. Hide on startup (last so no flash)
+  // 15. Hide on startup (last so no flash)
   if (SettingsService().hideOnStartup.value) {
     final hwnd = appWindow.handle;
     if (hwnd != null) {
@@ -147,7 +166,14 @@ Future<void> _syncSettingsToNative() async {
 Future<void> _initSystemTray() async {
   systemTray = SystemTray();
 
-  final iconPath = await TrayIconHelper.saveIconToFile();
+  // Use custom icon if configured, otherwise generate the default "Q" icon
+  String iconPath;
+  final customIcon = SettingsService().customIconPath.value;
+  if (customIcon != null && File(customIcon).existsSync()) {
+    iconPath = customIcon;
+  } else {
+    iconPath = await TrayIconHelper.saveIconToFile();
+  }
 
   await systemTray.initSystemTray(
     iconPath: iconPath,

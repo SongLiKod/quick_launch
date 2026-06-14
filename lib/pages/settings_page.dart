@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:win32/win32.dart';
@@ -130,6 +131,7 @@ class SettingsPage extends StatelessWidget {
           // ===== 外观 =====
           _sectionHeader(context, '外观'),
           _themeTile(context, service),
+          _customIconTile(context, service),
           _switchTile(
             context,
             icon: Icons.vertical_align_top,
@@ -415,6 +417,70 @@ class SettingsPage extends StatelessWidget {
           onSelectionChanged: (s) => service.setThemeMode(s.first),
         ),
       ),
+    );
+  }
+
+  Widget _customIconTile(BuildContext context, SettingsService service) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: service.customIconPath,
+      builder: (_, iconPath, _) => ListTile(
+        leading: const Icon(Icons.image),
+        title: const Text('自定义图标'),
+        subtitle: Text(
+          iconPath != null ? '已自定义' : '使用默认图标',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (iconPath != null)
+              IconButton(
+                icon: const Icon(Icons.restore),
+                tooltip: '恢复默认',
+                onPressed: () => _resetIcon(context, service),
+              ),
+            TextButton(
+              onPressed: () => _pickIcon(context, service),
+              child: Text(iconPath == null ? '选择' : '更换'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _pickIcon(BuildContext context, SettingsService service) async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: '选择图标文件',
+      type: FileType.custom,
+      allowedExtensions: ['ico'],
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    final path = result.files.single.path!;
+    service.setCustomIconPath(path);
+
+    if (!context.mounted) return;
+
+    // 立即刷新窗口图标
+    const channel = MethodChannel('quick_launch/settings');
+    await channel.invokeMethod('setAppIcon', path);
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('图标已更新，重启后完全生效')),
+    );
+  }
+
+  void _resetIcon(BuildContext context, SettingsService service) async {
+    service.setCustomIconPath(null);
+
+    // 恢复默认窗口图标（用 exe 自身的图标）
+    const channel = MethodChannel('quick_launch/settings');
+    await channel.invokeMethod('setAppIcon', Platform.resolvedExecutable);
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已恢复默认图标')),
     );
   }
 
