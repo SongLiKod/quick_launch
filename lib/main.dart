@@ -95,10 +95,19 @@ void main() async {
 
   // 13. Hide on startup (last so no flash)
   if (SettingsService().hideOnStartup.value) {
-    // Use ShowWindow directly via win32 for reliability
     final hwnd = appWindow.handle;
     if (hwnd != null) {
       ShowWindow(hwnd, SW_HIDE);
+    }
+    // 等一小会让托盘图标就绪，再弹出通知提示用户
+    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      await systemTray.displayBalloon(
+        title: '快速启动',
+        message: '程序已在系统托盘后台运行，点击托盘图标即可显示。',
+      );
+    } catch (_) {
+      // 气泡通知发送失败不影响程序运行
     }
   }
 }
