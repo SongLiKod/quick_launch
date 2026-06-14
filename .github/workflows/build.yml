@@ -53,6 +53,10 @@ jobs:
             $releasePath = "build\windows\runner\Release"
           }
           Write-Output "Packaging from: $releasePath"
+
+          # 将额外工具文件复制到发布目录
+          Copy-Item "reset_settings.bat" "$releasePath\" -Force
+
           Compress-Archive -Path "$releasePath\*" -DestinationPath quick_launch_windows.zip
           
           # 输出文件大小
