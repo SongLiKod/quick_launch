@@ -19,6 +19,22 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ItemService _itemService = ItemService();
 
+  @override
+  void initState() {
+    super.initState();
+    SettingsService().sortMode.addListener(_onSortModeChanged);
+  }
+
+  @override
+  void dispose() {
+    SettingsService().sortMode.removeListener(_onSortModeChanged);
+    super.dispose();
+  }
+
+  void _onSortModeChanged() {
+    setState(() {});
+  }
+
   Future<void> _showAddDialog() async {
     final result = await showDialog<LaunchItem>(
       context: context,
