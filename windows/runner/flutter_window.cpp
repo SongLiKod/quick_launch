@@ -1,8 +1,42 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <shellapi.h>
 
 #include "flutter/generated_plugin_registrant.h"
+
+// Helper: show a Windows balloon notification from the system tray area.
+// Uses a temporary NOTIFYICONDATA so it works even when the main window is hidden.
+static void ShowBalloon(HWND hwnd, const std::string& title,
+                         const std::string& message) {
+  // Convert UTF-8 to wide string
+  auto toWide = [](const std::string& s) -> std::wstring {
+    int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+    if (len <= 0) return L"";
+    std::wstring ws(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, ws.data(), len);
+    return ws;
+  };
+
+  NOTIFYICONDATAW nid = {sizeof(NOTIFYICONDATAW)};
+  nid.hWnd = hwnd;
+  nid.uID = 9999;
+  nid.uFlags = NIF_INFO | NIF_ICON | NIF_MESSAGE;
+  nid.uCallbackMessage = WM_APP + 1;
+  nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+  nid.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
+  nid.uTimeout = 3000;
+
+  std::wstring wtitle = toWide(title);
+  std::wstring wmsg = toWide(message);
+  wcsncpy_s(nid.szInfoTitle, wtitle.c_str(), _TRUNCATE);
+  wcsncpy_s(nid.szInfo, wmsg.c_str(), _TRUNCATE);
+
+  Shell_NotifyIconW(NIM_ADD, &nid);
+  // Balloon shows automatically on NIM_ADD with NIF_INFO.
+  // Remove the temporary icon so it doesn't persist.
+  Shell_NotifyIconW(NIM_DELETE, &nid);
+}
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -56,6 +90,21 @@ bool FlutterWindow::OnCreate() {
           const auto& args = *call.arguments();
           if (std::holds_alternative<bool>(args)) {
             hide_on_startup_ = std::get<bool>(args);
+          }
+          result->Success();
+        } else if (method == "showBalloon") {
+          const auto& args = *call.arguments();
+          if (std::holds_alternative<flutter::EncodableMap>(args)) {
+            const auto& map = std::get<flutter::EncodableMap>(args);
+            auto title_it = map.find(flutter::EncodableValue("title"));
+            auto msg_it = map.find(flutter::EncodableValue("message"));
+            if (title_it != map.end() && msg_it != map.end() &&
+                std::holds_alternative<std::string>(title_it->second) &&
+                std::holds_alternative<std::string>(msg_it->second)) {
+              ShowBalloon(GetHandle(),
+                          std::get<std::string>(title_it->second),
+                          std::get<std::string>(msg_it->second));
+            }
           }
           result->Success();
         } else if (method == "requestExit") {

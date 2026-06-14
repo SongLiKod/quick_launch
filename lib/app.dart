@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'pages/home_page.dart';
 import 'services/settings_service.dart';
 
+/// 全局导航键，用于在 main 中无 context 时弹出对话框
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class QuickLaunchApp extends StatefulWidget {
   const QuickLaunchApp({super.key});
 
@@ -31,6 +34,7 @@ class _QuickLaunchAppState extends State<QuickLaunchApp> {
     final themeMode = SettingsService().themeMode.value;
     return MaterialApp(
       title: '快速启动',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: ThemeData(
