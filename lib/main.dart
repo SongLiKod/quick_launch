@@ -91,20 +91,28 @@ void main() async {
   await _initSystemTray();
 
   // 12. Apply custom app icon (window title bar + taskbar)
-  final customIcon = SettingsService().customIconPath.value;
-  if (customIcon != null && File(customIcon).existsSync()) {
-    await _settingsChannel.invokeMethod('setAppIcon', customIcon);
+  try {
+    final customIcon = SettingsService().customIconPath.value;
+    if (customIcon != null && customIcon.isNotEmpty && File(customIcon).existsSync()) {
+      await _settingsChannel.invokeMethod('setAppIcon', customIcon);
+    }
+  } catch (_) {
+    // 忽略图标加载失败，继续启动
   }
 
   // Listen for custom icon changes (from settings) → update tray icon live
   SettingsService().customIconPath.addListener(() async {
-    final newPath = SettingsService().customIconPath.value;
-    if (newPath != null && File(newPath).existsSync()) {
-      await systemTray.setSystemTrayInfo(iconPath: newPath);
-    } else {
-      // Restore default tray icon
-      final defaultIcon = await TrayIconHelper.saveIconToFile();
-      await systemTray.setSystemTrayInfo(iconPath: defaultIcon);
+    try {
+      final newPath = SettingsService().customIconPath.value;
+      if (newPath != null && newPath.isNotEmpty && File(newPath).existsSync()) {
+        await systemTray.setSystemTrayInfo(iconPath: newPath);
+      } else {
+        // Restore default tray icon
+        final defaultIcon = await TrayIconHelper.saveIconToFile();
+        await systemTray.setSystemTrayInfo(iconPath: defaultIcon);
+      }
+    } catch (_) {
+      // 忽略托盘图标更新失败
     }
   });
 
@@ -169,7 +177,7 @@ Future<void> _initSystemTray() async {
   // Use custom icon if configured, otherwise generate the default "Q" icon
   String iconPath;
   final customIcon = SettingsService().customIconPath.value;
-  if (customIcon != null && File(customIcon).existsSync()) {
+  if (customIcon != null && customIcon.isNotEmpty && File(customIcon).existsSync()) {
     iconPath = customIcon;
   } else {
     iconPath = await TrayIconHelper.saveIconToFile();

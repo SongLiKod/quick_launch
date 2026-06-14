@@ -111,19 +111,25 @@ bool FlutterWindow::OnCreate() {
           const auto& args = *call.arguments();
           if (std::holds_alternative<std::string>(args)) {
             const auto pathUtf8 = std::get<std::string>(args);
-            // Convert UTF-8 path to wide string
-            int len = MultiByteToWideChar(CP_UTF8, 0, pathUtf8.c_str(), -1, nullptr, 0);
-            if (len > 0) {
-              std::wstring wpath(len, L'\0');
-              MultiByteToWideChar(CP_UTF8, 0, pathUtf8.c_str(), -1, wpath.data(), len);
-              // Load the icon from the .ico file
-              HANDLE hIcon = LoadImageW(nullptr, wpath.c_str(), IMAGE_ICON, 0, 0,
-                                         LR_LOADFROMFILE | LR_DEFAULTSIZE | LR_SHARED);
-              if (hIcon != nullptr) {
-                HWND hwnd = GetHandle();
-                // Set big icon (taskbar) and small icon (title bar)
-                SendMessage(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hIcon));
-                SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hIcon));
+            if (!pathUtf8.empty()) {
+              int len = MultiByteToWideChar(CP_UTF8, 0, pathUtf8.c_str(), -1, nullptr, 0);
+              if (len > 0) {
+                std::wstring wpath(len, L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, pathUtf8.c_str(), -1, wpath.data(), len);
+                // Load the icon from the .ico file (no LR_SHARED — we own the handle)
+                HICON hIcon = static_cast<HICON>(LoadImageW(
+                    nullptr, wpath.c_str(), IMAGE_ICON, 0, 0,
+                    LR_LOADFROMFILE | LR_DEFAULTSIZE));
+                if (hIcon != nullptr) {
+                  HWND hwnd = GetHandle();
+                  // Destroy old custom icon before setting a new one
+                  if (custom_icon_ != nullptr) {
+                    DestroyIcon(custom_icon_);
+                  }
+                  custom_icon_ = hIcon;
+                  SendMessage(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hIcon));
+                  SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hIcon));
+                }
               }
             }
           }
@@ -155,6 +161,12 @@ bool FlutterWindow::OnCreate() {
 void FlutterWindow::OnDestroy() {
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
+  }
+
+  // Clean up custom icon handle
+  if (custom_icon_ != nullptr) {
+    DestroyIcon(custom_icon_);
+    custom_icon_ = nullptr;
   }
 
   Win32Window::OnDestroy();
