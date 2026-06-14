@@ -8,7 +8,11 @@ import '../services/settings_service.dart';
 import '../services/item_service.dart';
 import '../services/hotkey_service.dart';
 import '../services/update_service.dart';
+import '../utils/tray_icon.dart';
 import 'logs_page.dart';
+
+// 引用 main.dart 中的 systemTray 全局变量
+import '../main.dart' show systemTray;
 
 /// 将快捷键修饰键和虚拟键码转为可读文本
 String formatHotkeyLabel(int? modifiers, int? virtualKey) {
@@ -461,22 +465,27 @@ class SettingsPage extends StatelessWidget {
 
     if (!context.mounted) return;
 
-    // 立即刷新窗口图标
+    // 立即刷新窗口图标和托盘图标
     const channel = MethodChannel('quick_launch/settings');
     await channel.invokeMethod('setAppIcon', path);
+    await systemTray.setSystemTrayInfo(iconPath: path);
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('图标已更新，重启后完全生效')),
+      const SnackBar(content: Text('图标已更新')),
     );
   }
 
   void _resetIcon(BuildContext context, SettingsService service) async {
     service.setCustomIconPath(null);
 
-    // 恢复默认窗口图标（用 exe 自身的图标）
+    if (!context.mounted) return;
+    // 恢复默认窗口图标
     const channel = MethodChannel('quick_launch/settings');
     await channel.invokeMethod('setAppIcon', Platform.resolvedExecutable);
+    // 恢复默认托盘图标
+    final defaultIcon = await TrayIconHelper.saveIconToFile();
+    await systemTray.setSystemTrayInfo(iconPath: defaultIcon);
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
