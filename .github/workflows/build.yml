@@ -40,8 +40,20 @@ jobs:
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
 
+      - name: Verify app icon
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash "windows\runner\resources\app_icon.ico" -Algorithm SHA256).Hash
+          Write-Output "app_icon.ico SHA256: $hash"
+          $size = (Get-Item "windows\runner\resources\app_icon.ico").Length
+          Write-Output "app_icon.ico size: $size bytes"
+          if ($size -eq 4286) { Write-Output "[OK] logo.ico detected" }
+          else { Write-Output "[WARN] size mismatch - expected 4286, got $size" }
+
       - name: Build Windows release
-        run: flutter build windows --release --dart-define=APP_VERSION=${{ steps.version.outputs.version }}
+        run: |
+          flutter clean
+          flutter build windows --release --dart-define=APP_VERSION=${{ steps.version.outputs.version }}
 
       - name: Package build artifact
         shell: pwsh
