@@ -113,13 +113,13 @@ Future<void> _startupAfterRunApp() async {
   // 11. Sync settings to native
   await _syncSettingsToNative();
 
-  // 12. Init system tray
+  // 12. Init system tray (always default icon)
   await _initSystemTray();
 
-  // 13. Apply custom app icon (window title bar + taskbar)
-  await _applyCustomIcon();
+  // 13. Apply saved custom icon to both window and tray (if any)
+  await _applySavedCustomIcon();
 
-  // 14. Listen for custom icon changes → update tray icon live
+  // 14. Listen for runtime custom icon changes → update tray
   SettingsService().customIconPath.addListener(_onCustomIconChanged);
 
   // 15. Apply always-on-top
@@ -153,14 +153,26 @@ Future<void> _startupAfterRunApp() async {
   }
 }
 
-Future<void> _applyCustomIcon() async {
+Future<void> _applySavedCustomIcon() async {
+  final path = SettingsService().customIconPath.value;
+  if (path == null || path.isEmpty || !File(path).existsSync()) return;
+
+  // Try window icon first
+  bool windowOk = false;
   try {
-    final customIcon = SettingsService().customIconPath.value;
-    if (customIcon != null && customIcon.isNotEmpty && File(customIcon).existsSync()) {
-      await _settingsChannel.invokeMethod('setAppIcon', customIcon);
-    }
-  } catch (_) {
-    // 设置窗口图标失败 → 清除已保存路径，下次启动不重试
+    final ok = await _settingsChannel.invokeMethod<bool>('setAppIcon', path);
+    windowOk = ok == true;
+  } catch (_) {}
+
+  // Then try tray icon
+  bool trayOk = false;
+  try {
+    await systemTray.setSystemTrayInfo(iconPath: path);
+    trayOk = true;
+  } catch (_) {}
+
+  // Both failed → clear config so next startup doesn't retry
+  if (!windowOk && !trayOk) {
     await SettingsService().setCustomIconPath(null);
   }
 }
@@ -175,10 +187,11 @@ void _onCustomIconChanged() async {
       await systemTray.setSystemTrayInfo(iconPath: defaultIcon);
     }
   } catch (_) {
-    // 托盘图标更新失败 → 恢复默认
-    await SettingsService().setCustomIconPath(null);
+    // Tray update failed → restore default
     final defaultIcon = await TrayIconHelper.saveIconToFile();
-    await systemTray.setSystemTrayInfo(iconPath: defaultIcon);
+    try {
+      await systemTray.setSystemTrayInfo(iconPath: defaultIcon);
+    } catch (_) {}
   }
 }
 
@@ -242,17 +255,6 @@ Future<void> _initSystemTray() async {
         systemTray.popUpContextMenu();
       }
     });
-
-    // 初始化完成后，如果用户配置了自定义图标，再切换到自定义图标
-    final customIcon = SettingsService().customIconPath.value;
-    if (customIcon != null && customIcon.isNotEmpty && File(customIcon).existsSync()) {
-      try {
-        await systemTray.setSystemTrayInfo(iconPath: customIcon);
-      } catch (_) {
-        // 切换失败 → 清除配置，下次启动不会重试
-        await SettingsService().setCustomIconPath(null);
-      }
-    }
   } catch (_) {
     // 托盘初始化失败不阻止应用运行
   }

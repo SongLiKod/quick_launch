@@ -8,11 +8,7 @@ import '../services/settings_service.dart';
 import '../services/item_service.dart';
 import '../services/hotkey_service.dart';
 import '../services/update_service.dart';
-import '../utils/tray_icon.dart';
 import 'logs_page.dart';
-
-// 引用 main.dart 中的 systemTray 全局变量
-import '../main.dart' show systemTray;
 
 /// 将快捷键修饰键和虚拟键码转为可读文本
 String formatHotkeyLabel(int? modifiers, int? virtualKey) {
@@ -461,14 +457,30 @@ class SettingsPage extends StatelessWidget {
     if (result == null || result.files.single.path == null) return;
 
     final path = result.files.single.path!;
-    service.setCustomIconPath(path);
 
     if (!context.mounted) return;
 
-    // 立即刷新窗口图标和托盘图标
+    // 先尝试设置窗口图标，成功了才保存路径
     const channel = MethodChannel('quick_launch/settings');
-    await channel.invokeMethod('setAppIcon', path);
-    await systemTray.setSystemTrayInfo(iconPath: path);
+    try {
+      final ok = await channel.invokeMethod<bool>('setAppIcon', path);
+      if (ok != true) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('图标文件无效，请选择其他 .ico 文件')),
+        );
+        return;
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('设置图标失败: $e')),
+      );
+      return;
+    }
+
+    // 窗口图标设置成功 → 保存路径并更新托盘图标
+    service.setCustomIconPath(path);
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -477,15 +489,14 @@ class SettingsPage extends StatelessWidget {
   }
 
   void _resetIcon(BuildContext context, SettingsService service) async {
-    service.setCustomIconPath(null);
-
     if (!context.mounted) return;
-    // 恢复默认窗口图标
+
+    // 先恢复默认窗口图标
     const channel = MethodChannel('quick_launch/settings');
     await channel.invokeMethod('setAppIcon', Platform.resolvedExecutable);
-    // 恢复默认托盘图标
-    final defaultIcon = await TrayIconHelper.saveIconToFile();
-    await systemTray.setSystemTrayInfo(iconPath: defaultIcon);
+
+    // 清除已保存路径（触发监听器自动恢复托盘图标）
+    service.setCustomIconPath(null);
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

@@ -116,24 +116,37 @@ bool FlutterWindow::OnCreate() {
               if (len > 0) {
                 std::wstring wpath(len, L'\0');
                 MultiByteToWideChar(CP_UTF8, 0, pathUtf8.c_str(), -1, wpath.data(), len);
-                // Load the icon from the .ico file (no LR_SHARED — we own the handle)
+                // Try loading at system default size first
                 HICON hIcon = static_cast<HICON>(LoadImageW(
                     nullptr, wpath.c_str(), IMAGE_ICON, 0, 0,
                     LR_LOADFROMFILE | LR_DEFAULTSIZE));
+                // If that fails, try 32x32 for ICON_BIG
+                if (hIcon == nullptr) {
+                  hIcon = static_cast<HICON>(LoadImageW(
+                      nullptr, wpath.c_str(), IMAGE_ICON, 32, 32,
+                      LR_LOADFROMFILE));
+                }
+                // If still fails, try 16x16 for ICON_SMALL
+                if (hIcon == nullptr) {
+                  hIcon = static_cast<HICON>(LoadImageW(
+                      nullptr, wpath.c_str(), IMAGE_ICON, 16, 16,
+                      LR_LOADFROMFILE));
+                }
                 if (hIcon != nullptr) {
                   HWND hwnd = GetHandle();
-                  // Destroy old custom icon before setting a new one
                   if (custom_icon_ != nullptr) {
                     DestroyIcon(custom_icon_);
                   }
                   custom_icon_ = hIcon;
                   SendMessage(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hIcon));
                   SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hIcon));
+                  result->Success(flutter::EncodableValue(true));
+                  return;
                 }
               }
             }
           }
-          result->Success();
+          result->Success(flutter::EncodableValue(false));
         } else if (method == "requestExit") {
           // Called from tray "Exit" — force close regardless of minimize setting.
           minimize_to_tray_ = false;
