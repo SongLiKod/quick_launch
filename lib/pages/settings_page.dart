@@ -176,7 +176,12 @@ class SettingsPage extends StatelessWidget {
             valueNotifier: service.autoStart,
             onChanged: (v) => service.setAutoStart(v),
           ),
-          if (service.autoStart.value) _startupDelayTile(context, service),
+          ValueListenableBuilder<bool>(
+            valueListenable: service.autoStart,
+            builder: (_, autoStart, _) => autoStart
+                ? _startupDelayTile(context, service)
+                : const SizedBox.shrink(),
+          ),
           // 显示窗口快捷键
           _showWindowHotkeyTile(context, service),
           const Divider(height: 1),

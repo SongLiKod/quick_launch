@@ -67,7 +67,7 @@ class SettingsService {
   Future<void> setAutoStart(bool value) async {
     autoStart.value = value;
     await _prefs.setBool(_kAutoStart, value);
-    _applyAutoStart(value, startupDelay.value);
+    await _applyAutoStart(value, startupDelay.value);
   }
 
   Future<void> setHideOnStartup(bool value) async {
@@ -79,7 +79,7 @@ class SettingsService {
     startupDelay.value = seconds;
     await _prefs.setInt(_kStartupDelay, seconds);
     if (autoStart.value) {
-      _applyAutoStart(true, seconds);
+      await _applyAutoStart(true, seconds);
     }
   }
 
@@ -96,20 +96,31 @@ class SettingsService {
   }
 
   /// 写入/删除开机自启注册表，含延迟
-  static void _applyAutoStart(bool enable, int delaySec) {
+  static Future<void> _applyAutoStart(bool enable, int delaySec) async {
     final keyPath = r'HKCU\Software\Microsoft\Windows\CurrentVersion\Run';
     final exePath = Platform.resolvedExecutable;
-    if (enable) {
-      final cmd = delaySec > 0
-          ? 'cmd /c timeout /t $delaySec /nobreak >nul & start "" "$exePath"'
-          : '"$exePath"';
-      Process.run('reg', [
-        'add', keyPath, '/v', 'QuickLaunch', '/t', 'REG_SZ', '/d', cmd, '/f',
-      ]);
-    } else {
-      Process.run('reg', [
-        'delete', keyPath, '/v', 'QuickLaunch', '/f',
-      ]);
+    try {
+      if (enable) {
+        // 无延迟：直接写 exe 路径，用引号包裹防止空格问题
+        // 有延迟：用 cmd /c timeout 实现延时启动
+        final cmd = delaySec > 0
+            ? 'cmd /c timeout /t $delaySec /nobreak >nul & start "" "$exePath"'
+            : '"$exePath"';
+        final result = await Process.run('reg', [
+          'add', keyPath, '/v', 'QuickLaunch', '/t', 'REG_SZ', '/d', cmd, '/f', '/reg:64',
+        ]);
+        if (result.exitCode != 0) {
+          // ignore: avoid_print
+          print('注册开机自启失败: ${result.stderr}');
+        }
+      } else {
+        await Process.run('reg', [
+          'delete', keyPath, '/v', 'QuickLaunch', '/f',
+        ]);
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('注册开机自启异常: $e');
     }
   }
 
