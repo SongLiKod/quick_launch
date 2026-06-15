@@ -6,8 +6,10 @@ import '../services/hotkey_service.dart';
 import '../services/launch_service.dart';
 import '../services/system_commands.dart';
 import '../services/settings_service.dart';
+import '../services/group_service.dart';
 import '../widgets/item_tile.dart';
 import '../widgets/add_item_dialog.dart';
+import '../widgets/group_manage_dialog.dart';
 import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -19,14 +21,17 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final ItemService _itemService = ItemService();
+  final GroupService _groupService = GroupService();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String? _selectedGroupId; // null = 全部
 
   @override
   void initState() {
     super.initState();
-    SettingsService().sortMode.addListener(_onSortModeChanged);
-    SettingsService().columnCount.addListener(_onSortModeChanged);
+    SettingsService().sortMode.addListener(_onChanged);
+    SettingsService().columnCount.addListener(_onChanged);
+    _groupService.groups.addListener(_onChanged);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
@@ -34,13 +39,22 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    SettingsService().sortMode.removeListener(_onSortModeChanged);
+    SettingsService().sortMode.removeListener(_onChanged);
+    SettingsService().columnCount.removeListener(_onChanged);
+    _groupService.groups.removeListener(_onChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  void _onSortModeChanged() {
+  void _onChanged() {
     setState(() {});
+  }
+
+  void _openGroupManage() {
+    showDialog(
+      context: context,
+      builder: (_) => const GroupManageDialog(),
+    );
   }
 
   Future<void> _showAddDialog() async {
@@ -59,6 +73,62 @@ class _HomePageState extends State<HomePage> {
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsPage()),
+    );
+  }
+
+  Widget _buildGroupFilterBar() {
+    final groups = _groupService.groups.value;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildGroupChip('全部', null),
+                  ...groups.map((g) => _buildGroupChip(g.name, g.id,
+                      color: Color(g.colorValue))),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            tooltip: '管理分组',
+            onPressed: _openGroupManage,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupChip(String label, String? groupId,
+      {Color? color}) {
+    final selected = _selectedGroupId == groupId;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: FilterChip(
+        label: Text(label, style: const TextStyle(fontSize: 12)),
+        selected: selected,
+        selectedColor: color?.withValues(alpha: 0.2),
+        checkmarkColor: color,
+        visualDensity: VisualDensity.compact,
+        onSelected: (_) {
+          setState(() => _selectedGroupId = groupId);
+        },
+      ),
     );
   }
 
@@ -159,60 +229,77 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: ValueListenableBuilder<List<LaunchItem>>(
-        valueListenable: _itemService.items,
-        builder: (_, list, _) {
-          final filtered = _searchQuery.isEmpty
-              ? list
-              : list.where((item) =>
-                  item.name.toLowerCase().contains(_searchQuery) ||
-                  item.targetPath.toLowerCase().contains(_searchQuery)).toList();
+      body: Column(
+        children: [
+          _buildGroupFilterBar(),
+          Expanded(
+            child: ValueListenableBuilder<List<LaunchItem>>(
+              valueListenable: _itemService.items,
+              builder: (_, list, _) {
+                // 按分组筛选
+                var filtered = list;
+                if (_selectedGroupId != null) {
+                  filtered = list
+                      .where((item) => item.groupId == _selectedGroupId)
+                      .toList();
+                }
+                // 按搜索词筛选
+                if (_searchQuery.isNotEmpty) {
+                  filtered = filtered
+                      .where((item) =>
+                          item.name.toLowerCase().contains(_searchQuery) ||
+                          item.targetPath.toLowerCase().contains(_searchQuery))
+                      .toList();
+                }
 
-          if (filtered.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.search_off, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  Text(
-                    _searchQuery.isNotEmpty ? '没有匹配的启动项' : '点击右下角 + 添加启动项',
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.search_off, size: 64, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        Text(
+                          _searchQuery.isNotEmpty ? '没有匹配的启动项' : '点击右下角 + 添加启动项',
+                          style: const TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                if (columnCount > 1) {
+                  return _buildGridLayout(filtered, columnCount);
+                }
+
+                if (enableDrag) {
+                  return ReorderableListView.builder(
+                    padding: const EdgeInsets.only(top: 8, bottom: 80),
+                    itemCount: filtered.length,
+                    buildDefaultDragHandles: false,
+                    itemBuilder: (_, i) => ItemTile(
+                      key: ValueKey(filtered[i].id),
+                      item: filtered[i],
+                      index: i,
+                    ),
+                    onReorderItem: (oldIndex, newIndex) {
+                      _itemService.reorderItem(oldIndex, newIndex);
+                    },
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.only(top: 8, bottom: 80),
+                  itemCount: filtered.length,
+                  itemBuilder: (_, i) => ItemTile(
+                    key: ValueKey(filtered[i].id),
+                    item: filtered[i],
                   ),
-                ],
-              ),
-            );
-          }
-
-          if (columnCount > 1) {
-            return _buildGridLayout(filtered, columnCount);
-          }
-
-          if (enableDrag) {
-            return ReorderableListView.builder(
-              padding: const EdgeInsets.only(top: 8, bottom: 80),
-              itemCount: filtered.length,
-              buildDefaultDragHandles: false,
-              itemBuilder: (_, i) => ItemTile(
-                key: ValueKey(filtered[i].id),
-                item: filtered[i],
-                index: i,
-              ),
-              onReorderItem: (oldIndex, newIndex) {
-                _itemService.reorderItem(oldIndex, newIndex);
+                );
               },
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.only(top: 8, bottom: 80),
-            itemCount: filtered.length,
-            itemBuilder: (_, i) => ItemTile(
-              key: ValueKey(filtered[i].id),
-              item: filtered[i],
             ),
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddDialog,

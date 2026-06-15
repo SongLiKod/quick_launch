@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../models/launch_item.dart';
+import '../models/item_group.dart';
 import '../services/hotkey_service.dart';
+import '../services/group_service.dart';
 import '../utils/path_util.dart';
 
 class AddItemDialog extends StatefulWidget {
@@ -23,6 +25,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
   late String _hotkeyLabel;
   late ItemType _detectedType;
   late String _mode; // 'file', 'command', 'link'
+  String? _groupId;
 
   bool get _isEditing => widget.item != null;
   String? _conflictHint; // 快捷键冲突提示
@@ -42,6 +45,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
         : existing?.type == ItemType.link
             ? 'link'
             : 'file';
+    _groupId = existing?.groupId;
 
     if (existing?.hotkeyVirtualKey != null) {
       final mods = <String>[];
@@ -353,6 +357,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
       hotkeyModifiers: _hotkeyModifiers,
       hotkeyVirtualKey: _hotkeyVirtualKey,
       runAsAdmin: _runAsAdmin,
+      groupId: _groupId,
     );
 
     Navigator.of(context).pop(item);
@@ -498,6 +503,61 @@ class _AddItemDialogState extends State<AddItemDialog> {
               const SizedBox(height: 4),
               Text(_conflictHint!, style: const TextStyle(color: Colors.red, fontSize: 12)),
             ],
+            const SizedBox(height: 8),
+            // 分组选择
+            Row(
+              children: [
+                const Text('分组: '),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ValueListenableBuilder<List<ItemGroup>>(
+                    valueListenable: GroupService().groups,
+                    builder: (_, groups, _) {
+                      return InputDecorator(
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String?>(
+                            value: _groupId,
+                            isExpanded: true,
+                            hint: const Text('无分组',
+                                style: TextStyle(fontSize: 13)),
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('无分组',
+                                    style: TextStyle(fontSize: 13)),
+                              ),
+                              ...groups.map((g) => DropdownMenuItem(
+                                    value: g.id,
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          backgroundColor:
+                                              Color(g.colorValue),
+                                          radius: 6,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(g.name,
+                                            style:
+                                                const TextStyle(fontSize: 13)),
+                                      ],
+                                    ),
+                                  )),
+                            ],
+                            onChanged: (v) => setState(() => _groupId = v),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Row(
               children: [

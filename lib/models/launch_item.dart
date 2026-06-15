@@ -9,6 +9,7 @@ class LaunchItem {
   int? hotkeyVirtualKey;
   bool runAsAdmin;
   DateTime createdAt;
+  String? groupId;
 
   LaunchItem({
     required this.id,
@@ -19,6 +20,7 @@ class LaunchItem {
     this.hotkeyVirtualKey,
     this.runAsAdmin = false,
     DateTime? createdAt,
+    this.groupId,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +32,7 @@ class LaunchItem {
         'hotkeyVirtualKey': hotkeyVirtualKey,
         'runAsAdmin': runAsAdmin,
         'createdAt': createdAt.toIso8601String(),
+        'groupId': groupId,
       };
 
   factory LaunchItem.fromJson(Map<String, dynamic> json) => LaunchItem(
@@ -41,5 +44,6 @@ class LaunchItem {
         hotkeyVirtualKey: json['hotkeyVirtualKey'] as int?,
         runAsAdmin: json['runAsAdmin'] as bool? ?? false,
         createdAt: DateTime.parse(json['createdAt'] as String),
+        groupId: json['groupId'] as String?,
       );
 }
