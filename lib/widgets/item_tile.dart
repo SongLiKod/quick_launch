@@ -164,54 +164,72 @@ class ItemTile extends StatelessWidget {
       child: InkWell(
         onTap: () => _onLaunch(context),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
             children: [
-              // 图标
-              _buildIcon(size: 28),
-              const SizedBox(height: 4),
-              // 名称
-              Text(
-                item.name,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+              _buildIcon(size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Row(
+                      children: [
+                        _buildTypeLabel(),
+                        if (item.hotkeyVirtualKey != null) ...[
+                          const SizedBox(width: 4),
+                          _buildHotkeyBadge(),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 3),
-              // 类型标签
-              _buildTypeLabel(),
-              // 快捷键
-              if (item.hotkeyVirtualKey != null) ...[
-                const SizedBox(height: 2),
-                _buildHotkeyBadge(),
-              ],
-              const SizedBox(height: 4),
-              // 操作按钮
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildMiniIconButton(
-                    icon: Icons.play_arrow,
-                    color: Colors.green,
-                    tooltip: '启动',
-                    onPressed: () => _onLaunch(context),
+              const SizedBox(width: 4),
+              _buildMiniIconButton(
+                icon: Icons.play_arrow,
+                color: Colors.green,
+                tooltip: '启动',
+                onPressed: () => _onLaunch(context),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz, size: 18),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onSelected: (action) {
+                  if (action == 'edit') _onEdit(context);
+                  if (action == 'delete') _onDelete(context);
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Text('编辑'),
+                      ],
+                    ),
                   ),
-                  _buildMiniIconButton(
-                    icon: Icons.edit_outlined,
-                    tooltip: '编辑',
-                    onPressed: () => _onEdit(context),
-                  ),
-                  _buildMiniIconButton(
-                    icon: Icons.delete_outline,
-                    color: Colors.red,
-                    tooltip: '删除',
-                    onPressed: () => _onDelete(context),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('删除', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
                   ),
                 ],
               ),

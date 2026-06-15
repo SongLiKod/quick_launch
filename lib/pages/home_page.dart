@@ -82,9 +82,9 @@ class _HomePageState extends State<HomePage> {
 
   double _aspectRatioForColumns(int cols) {
     switch (cols) {
-      case 2: return 3.0;
-      case 3: return 2.4;
-      case 4: return 1.8;
+      case 2: return 4.0;
+      case 3: return 3.0;
+      case 4: return 2.4;
       default: return 2.0;
     }
   }
