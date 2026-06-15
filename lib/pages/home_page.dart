@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/launch_item.dart';
 import '../services/item_service.dart';
@@ -25,6 +26,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     SettingsService().sortMode.addListener(_onSortModeChanged);
+    SettingsService().columnCount.addListener(_onSortModeChanged);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
@@ -60,11 +62,53 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildGridLayout(List<LaunchItem> items, int cols) {
+    // 将 items 按列数分组为行
+    final rows = <List<LaunchItem>>[];
+    for (int i = 0; i < items.length; i += cols) {
+      rows.add(items.sublist(i, min(i + cols, items.length)));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8, bottom: 80),
+      itemCount: rows.length,
+      itemBuilder: (_, rowIndex) {
+        final row = rows[rowIndex];
+        return SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              for (int i = 0; i < row.length; i++)
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: i == 0 ? 12 : 4,
+                      right: i == row.length - 1 ? 12 : 4,
+                    ),
+                    child: ItemTile(
+                      key: ValueKey(row[i].id),
+                      item: row[i],
+                      isGridMode: true,
+                    ),
+                  ),
+                ),
+              // 空位补齐，保持对齐
+              if (row.length < cols)
+                for (int i = 0; i < cols - row.length; i++)
+                  const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 手动排序模式下才启用拖拽
+    // 手动排序模式下才启用拖拽，多列模式禁用拖拽
     final sortMode = SettingsService().sortMode.value;
-    final enableDrag = sortMode == SortMode.manual;
+    final columnCount = SettingsService().columnCount.value;
+    final enableDrag = sortMode == SortMode.manual && columnCount <= 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -138,6 +182,10 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             );
+          }
+
+          if (columnCount > 1) {
+            return _buildGridLayout(filtered, columnCount);
           }
 
           if (enableDrag) {
