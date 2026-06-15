@@ -44,6 +44,9 @@ class FlutterWindow : public Win32Window {
 
   // When true, skip the initial Show() call on startup.
   bool hide_on_startup_ = false;
+
+  // Handle to the currently set custom icon (for cleanup).
+  HICON custom_icon_ = nullptr;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

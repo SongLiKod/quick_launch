@@ -20,6 +20,8 @@ class SettingsService {
   // 显示窗口快捷键
   final ValueNotifier<int?> showWindowModifiers = ValueNotifier(null);
   final ValueNotifier<int?> showWindowKey = ValueNotifier(null);
+  // 自定义图标路径
+  final ValueNotifier<String?> customIconPath = ValueNotifier(null);
 
   late SharedPreferences _prefs;
 
@@ -32,6 +34,7 @@ class SettingsService {
   static const _kSortMode = 'sort_mode';
   static const _kShowWindowModifiers = 'show_window_modifiers';
   static const _kShowWindowKey = 'show_window_key';
+  static const _kCustomIconPath = 'custom_icon_path';
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -47,6 +50,7 @@ class SettingsService {
     showWindowModifiers.value = (swm != null && swm >= 0) ? swm : null;
     final swk = _prefs.getInt(_kShowWindowKey);
     showWindowKey.value = (swk != null && swk >= 0) ? swk : null;
+    customIconPath.value = _prefs.getString(_kCustomIconPath);
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -93,6 +97,17 @@ class SettingsService {
     showWindowKey.value = key;
     await _prefs.setInt(_kShowWindowModifiers, modifiers ?? -1);
     await _prefs.setInt(_kShowWindowKey, key ?? -1);
+  }
+
+  Future<void> setCustomIconPath(String? path) async {
+    // 不保存空路径，避免启动时 File() 构造异常
+    if (path != null && path.trim().isEmpty) path = null;
+    customIconPath.value = path;
+    if (path != null) {
+      await _prefs.setString(_kCustomIconPath, path);
+    } else {
+      await _prefs.remove(_kCustomIconPath);
+    }
   }
 
   /// 写入/删除开机自启注册表，含延迟

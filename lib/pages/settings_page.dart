@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:win32/win32.dart';
@@ -130,6 +131,7 @@ class SettingsPage extends StatelessWidget {
           // ===== 外观 =====
           _sectionHeader(context, '外观'),
           _themeTile(context, service),
+          _customIconTile(context, service),
           _switchTile(
             context,
             icon: Icons.vertical_align_top,
@@ -415,6 +417,90 @@ class SettingsPage extends StatelessWidget {
           onSelectionChanged: (s) => service.setThemeMode(s.first),
         ),
       ),
+    );
+  }
+
+  Widget _customIconTile(BuildContext context, SettingsService service) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: service.customIconPath,
+      builder: (_, iconPath, _) => ListTile(
+        leading: const Icon(Icons.image),
+        title: const Text('自定义图标'),
+        subtitle: Text(
+          iconPath != null ? '已自定义' : '使用默认图标',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (iconPath != null)
+              IconButton(
+                icon: const Icon(Icons.restore),
+                tooltip: '恢复默认',
+                onPressed: () => _resetIcon(context, service),
+              ),
+            TextButton(
+              onPressed: () => _pickIcon(context, service),
+              child: Text(iconPath == null ? '选择' : '更换'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _pickIcon(BuildContext context, SettingsService service) async {
+    final result = await FilePicker.pickFiles(
+      dialogTitle: '选择图标文件',
+      type: FileType.custom,
+      allowedExtensions: ['ico'],
+    );
+    if (result == null || result.files.single.path == null) return;
+
+    final path = result.files.single.path!;
+
+    if (!context.mounted) return;
+
+    // 先尝试设置窗口图标，成功了才保存路径
+    const channel = MethodChannel('quick_launch/settings');
+    try {
+      final ok = await channel.invokeMethod<bool>('setAppIcon', path);
+      if (ok != true) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('图标文件无效，请选择其他 .ico 文件')),
+        );
+        return;
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('设置图标失败: $e')),
+      );
+      return;
+    }
+
+    // 窗口图标设置成功 → 保存路径并更新托盘图标
+    service.setCustomIconPath(path);
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('图标已更新')),
+    );
+  }
+
+  void _resetIcon(BuildContext context, SettingsService service) async {
+    if (!context.mounted) return;
+
+    // 先恢复默认窗口图标
+    const channel = MethodChannel('quick_launch/settings');
+    await channel.invokeMethod('setAppIcon', Platform.resolvedExecutable);
+
+    // 清除已保存路径（触发监听器自动恢复托盘图标）
+    service.setCustomIconPath(null);
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已恢复默认图标')),
     );
   }
 

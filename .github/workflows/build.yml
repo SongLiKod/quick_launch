@@ -40,8 +40,13 @@ jobs:
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
 
+      - name: Merge multi-resolution app icon from logo files
+        run: dart run tools/merge_icons.dart
+
       - name: Build Windows release
-        run: flutter build windows --release --dart-define=APP_VERSION=${{ steps.version.outputs.version }}
+        run: |
+          flutter clean
+          flutter build windows --release --dart-define=APP_VERSION=${{ steps.version.outputs.version }}
 
       - name: Package build artifact
         shell: pwsh
@@ -53,6 +58,10 @@ jobs:
             $releasePath = "build\windows\runner\Release"
           }
           Write-Output "Packaging from: $releasePath"
+
+          # 将额外工具文件复制到发布目录
+          Copy-Item "reset_settings.bat" "$releasePath\" -Force
+
           Compress-Archive -Path "$releasePath\*" -DestinationPath quick_launch_windows.zip
           
           # 输出文件大小

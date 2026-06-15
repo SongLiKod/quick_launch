@@ -107,6 +107,46 @@ bool FlutterWindow::OnCreate() {
             }
           }
           result->Success();
+        } else if (method == "setAppIcon") {
+          const auto& args = *call.arguments();
+          if (std::holds_alternative<std::string>(args)) {
+            const auto pathUtf8 = std::get<std::string>(args);
+            if (!pathUtf8.empty()) {
+              int len = MultiByteToWideChar(CP_UTF8, 0, pathUtf8.c_str(), -1, nullptr, 0);
+              if (len > 0) {
+                std::wstring wpath(len, L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, pathUtf8.c_str(), -1, wpath.data(), len);
+                // Try loading at system default size first
+                HICON hIcon = static_cast<HICON>(LoadImageW(
+                    nullptr, wpath.c_str(), IMAGE_ICON, 0, 0,
+                    LR_LOADFROMFILE | LR_DEFAULTSIZE));
+                // If that fails, try 32x32 for ICON_BIG
+                if (hIcon == nullptr) {
+                  hIcon = static_cast<HICON>(LoadImageW(
+                      nullptr, wpath.c_str(), IMAGE_ICON, 32, 32,
+                      LR_LOADFROMFILE));
+                }
+                // If still fails, try 16x16 for ICON_SMALL
+                if (hIcon == nullptr) {
+                  hIcon = static_cast<HICON>(LoadImageW(
+                      nullptr, wpath.c_str(), IMAGE_ICON, 16, 16,
+                      LR_LOADFROMFILE));
+                }
+                if (hIcon != nullptr) {
+                  HWND hwnd = GetHandle();
+                  if (custom_icon_ != nullptr) {
+                    DestroyIcon(custom_icon_);
+                  }
+                  custom_icon_ = hIcon;
+                  SendMessage(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hIcon));
+                  SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hIcon));
+                  result->Success(flutter::EncodableValue(true));
+                  return;
+                }
+              }
+            }
+          }
+          result->Success(flutter::EncodableValue(false));
         } else if (method == "requestExit") {
           // Called from tray "Exit" — force close regardless of minimize setting.
           minimize_to_tray_ = false;
@@ -134,6 +174,12 @@ bool FlutterWindow::OnCreate() {
 void FlutterWindow::OnDestroy() {
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
+  }
+
+  // Clean up custom icon handle
+  if (custom_icon_ != nullptr) {
+    DestroyIcon(custom_icon_);
+    custom_icon_ = nullptr;
   }
 
   Win32Window::OnDestroy();
