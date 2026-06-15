@@ -8,8 +8,27 @@ import 'add_item_dialog.dart';
 class ItemTile extends StatelessWidget {
   final LaunchItem item;
   final int? index;
+  final bool isGridMode;
 
-  const ItemTile({super.key, required this.item, this.index});
+  const ItemTile({
+    super.key,
+    required this.item,
+    this.index,
+    this.isGridMode = false,
+  });
+
+  void _onLaunch(BuildContext context) async {
+    final result = await LaunchService().launch(item);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.success
+            ? '正在启动 ${item.name}...'
+            : '启动失败: ${result.errorMessage ?? "未知错误"}'),
+        duration: Duration(seconds: result.success ? 1 : 3),
+      ),
+    );
+  }
 
   void _onEdit(BuildContext context) async {
     final result = await showDialog<LaunchItem>(
@@ -60,6 +79,11 @@ class ItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isGridMode) return _buildGridTile(context);
+    return _buildListTile(context);
+  }
+
+  Widget _buildListTile(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Padding(
@@ -115,18 +139,7 @@ class ItemTile extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.play_arrow, color: Colors.green),
               tooltip: '启动',
-              onPressed: () async {
-                final result = await LaunchService().launch(item);
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(result.success
-                        ? '正在启动 ${item.name}...'
-                        : '启动失败: ${result.errorMessage ?? "未知错误"}'),
-                    duration: Duration(seconds: result.success ? 1 : 3),
-                  ),
-                );
-              },
+              onPressed: () => _onLaunch(context),
             ),
             IconButton(
               icon: const Icon(Icons.edit_outlined),
@@ -144,22 +157,104 @@ class ItemTile extends StatelessWidget {
     );
   }
 
-  Widget _buildIcon() {
+  Widget _buildGridTile(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _onLaunch(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 图标
+              _buildIcon(size: 40),
+              const SizedBox(height: 8),
+              // 名称
+              Text(
+                item.name,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              // 类型标签
+              _buildTypeLabel(),
+              // 快捷键
+              if (item.hotkeyVirtualKey != null) ...[
+                const SizedBox(height: 4),
+                _buildHotkeyBadge(),
+              ],
+              const SizedBox(height: 8),
+              // 操作按钮
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildMiniIconButton(
+                    icon: Icons.play_arrow,
+                    color: Colors.green,
+                    tooltip: '启动',
+                    onPressed: () => _onLaunch(context),
+                  ),
+                  _buildMiniIconButton(
+                    icon: Icons.edit_outlined,
+                    tooltip: '编辑',
+                    onPressed: () => _onEdit(context),
+                  ),
+                  _buildMiniIconButton(
+                    icon: Icons.delete_outline,
+                    color: Colors.red,
+                    tooltip: '删除',
+                    onPressed: () => _onDelete(context),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniIconButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    Color? color,
+    String? tooltip,
+  }) {
+    return IconButton(
+      icon: Icon(icon, size: 18),
+      color: color,
+      tooltip: tooltip,
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      padding: EdgeInsets.zero,
+    );
+  }
+
+  Widget _buildIcon({double size = 24}) {
     switch (item.type) {
       case ItemType.executable:
-        return const Icon(Icons.miscellaneous_services, color: Colors.blue);
+        return Icon(Icons.miscellaneous_services, color: Colors.blue, size: size);
       case ItemType.batScript:
-        return const Icon(Icons.terminal, color: Colors.orange);
+        return Icon(Icons.terminal, color: Colors.orange, size: size);
       case ItemType.file:
-        return const Icon(Icons.description, color: Colors.grey);
+        return Icon(Icons.description, color: Colors.grey, size: size);
       case ItemType.folder:
-        return const Icon(Icons.folder, color: Colors.amber);
+        return Icon(Icons.folder, color: Colors.amber, size: size);
       case ItemType.system:
-        return const Icon(Icons.power_settings_new, color: Colors.red);
+        return Icon(Icons.power_settings_new, color: Colors.red, size: size);
       case ItemType.command:
-        return const Icon(Icons.terminal, color: Colors.teal);
+        return Icon(Icons.terminal, color: Colors.teal, size: size);
       case ItemType.link:
-        return const Icon(Icons.link, color: Colors.blue);
+        return Icon(Icons.link, color: Colors.blue, size: size);
     }
   }
 

@@ -22,6 +22,8 @@ class SettingsService {
   final ValueNotifier<int?> showWindowKey = ValueNotifier(null);
   // 自定义图标路径
   final ValueNotifier<String?> customIconPath = ValueNotifier(null);
+  // 多列展示
+  final ValueNotifier<int> columnCount = ValueNotifier(1);
 
   late SharedPreferences _prefs;
 
@@ -35,6 +37,7 @@ class SettingsService {
   static const _kShowWindowModifiers = 'show_window_modifiers';
   static const _kShowWindowKey = 'show_window_key';
   static const _kCustomIconPath = 'custom_icon_path';
+  static const _kColumnCount = 'column_count';
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -51,6 +54,7 @@ class SettingsService {
     final swk = _prefs.getInt(_kShowWindowKey);
     showWindowKey.value = (swk != null && swk >= 0) ? swk : null;
     customIconPath.value = _prefs.getString(_kCustomIconPath);
+    columnCount.value = _prefs.getInt(_kColumnCount) ?? 1;
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -108,6 +112,12 @@ class SettingsService {
     } else {
       await _prefs.remove(_kCustomIconPath);
     }
+  }
+
+  Future<void> setColumnCount(int value) async {
+    final clamped = value.clamp(1, 4);
+    columnCount.value = clamped;
+    await _prefs.setInt(_kColumnCount, clamped);
   }
 
   /// 写入/删除开机自启注册表，含延迟

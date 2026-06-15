@@ -25,6 +25,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     SettingsService().sortMode.addListener(_onSortModeChanged);
+    SettingsService().columnCount.addListener(_onSortModeChanged);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
@@ -60,11 +61,40 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildGridView(List<LaunchItem> items, int crossAxisCount) {
+    return GridView.builder(
+      padding: const EdgeInsets.only(top: 8, bottom: 80, left: 8, right: 8),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: _aspectRatioForColumns(crossAxisCount),
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: items.length,
+      itemBuilder: (_, i) => ItemTile(
+        key: ValueKey(items[i].id),
+        item: items[i],
+        index: i,
+        isGridMode: true,
+      ),
+    );
+  }
+
+  double _aspectRatioForColumns(int cols) {
+    switch (cols) {
+      case 2: return 2.2;
+      case 3: return 1.6;
+      case 4: return 1.2;
+      default: return 2.0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 手动排序模式下才启用拖拽
+    // 手动排序模式下才启用拖拽，多列模式禁用拖拽
     final sortMode = SettingsService().sortMode.value;
-    final enableDrag = sortMode == SortMode.manual;
+    final columnCount = SettingsService().columnCount.value;
+    final enableDrag = sortMode == SortMode.manual && columnCount <= 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -138,6 +168,10 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             );
+          }
+
+          if (columnCount > 1) {
+            return _buildGridView(filtered, columnCount);
           }
 
           if (enableDrag) {

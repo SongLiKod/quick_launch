@@ -132,6 +132,7 @@ class SettingsPage extends StatelessWidget {
           _sectionHeader(context, '外观'),
           _themeTile(context, service),
           _customIconTile(context, service),
+          _columnCountTile(context, service),
           _switchTile(
             context,
             icon: Icons.vertical_align_top,
@@ -441,6 +442,48 @@ class SettingsPage extends StatelessWidget {
             TextButton(
               onPressed: () => _pickIcon(context, service),
               child: Text(iconPath == null ? '选择' : '更换'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _columnCountTile(BuildContext context, SettingsService service) {
+    return ValueListenableBuilder<int>(
+      valueListenable: service.columnCount,
+      builder: (_, count, _) => ListTile(
+        leading: const Icon(Icons.grid_view),
+        title: const Text('列表列数'),
+        subtitle: Text(
+          count <= 1 ? '单列' : '$count 列',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.remove),
+              onPressed: count > 1
+                  ? () => service.setColumnCount(count - 1)
+                  : null,
+            ),
+            Text(
+              '$count',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '列',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: count < 4
+                  ? () => service.setColumnCount(count + 1)
+                  : null,
             ),
           ],
         ),
