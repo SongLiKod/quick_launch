@@ -164,34 +164,34 @@ class ItemTile extends StatelessWidget {
       child: InkWell(
         onTap: () => _onLaunch(context),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // 图标
-              _buildIcon(size: 40),
-              const SizedBox(height: 8),
+              _buildIcon(size: 28),
+              const SizedBox(height: 4),
               // 名称
               Text(
                 item.name,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 3),
               // 类型标签
               _buildTypeLabel(),
               // 快捷键
               if (item.hotkeyVirtualKey != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 _buildHotkeyBadge(),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               // 操作按钮
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
