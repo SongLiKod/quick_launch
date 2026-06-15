@@ -17,6 +17,7 @@ class SettingsService {
   final ValueNotifier<bool> hideOnStartup = ValueNotifier(false);
   final ValueNotifier<int> startupDelay = ValueNotifier(0);
   final ValueNotifier<SortMode> sortMode = ValueNotifier(SortMode.manual);
+  final ValueNotifier<int> columnCount = ValueNotifier(1);
   // 显示窗口快捷键
   final ValueNotifier<int?> showWindowModifiers = ValueNotifier(null);
   final ValueNotifier<int?> showWindowKey = ValueNotifier(null);
@@ -30,6 +31,7 @@ class SettingsService {
   static const _kHideOnStartup = 'hide_on_startup';
   static const _kStartupDelay = 'startup_delay';
   static const _kSortMode = 'sort_mode';
+  static const _kColumnCount = 'column_count';
   static const _kShowWindowModifiers = 'show_window_modifiers';
   static const _kShowWindowKey = 'show_window_key';
 
@@ -42,6 +44,7 @@ class SettingsService {
     hideOnStartup.value = _prefs.getBool(_kHideOnStartup) ?? false;
     startupDelay.value = _prefs.getInt(_kStartupDelay) ?? 0;
     sortMode.value = _parseSort(_prefs.getString(_kSortMode));
+    columnCount.value = (_prefs.getInt(_kColumnCount) ?? 1).clamp(1, 4);
     // 注意：int? 存储为 int，默认 -1 表示 null
     final swm = _prefs.getInt(_kShowWindowModifiers);
     showWindowModifiers.value = (swm != null && swm >= 0) ? swm : null;
@@ -86,6 +89,12 @@ class SettingsService {
   Future<void> setSortMode(SortMode mode) async {
     sortMode.value = mode;
     await _prefs.setString(_kSortMode, _stringifySort(mode));
+  }
+
+  Future<void> setColumnCount(int count) async {
+    final clamped = count.clamp(1, 4);
+    columnCount.value = clamped;
+    await _prefs.setInt(_kColumnCount, clamped);
   }
 
   Future<void> setShowWindowHotkey(int? modifiers, int? key) async {

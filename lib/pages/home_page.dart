@@ -25,6 +25,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     SettingsService().sortMode.addListener(_onSortModeChanged);
+    SettingsService().columnCount.addListener(_onSortModeChanged);
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
@@ -33,6 +34,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     SettingsService().sortMode.removeListener(_onSortModeChanged);
+    SettingsService().columnCount.removeListener(_onSortModeChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -136,6 +138,27 @@ class _HomePageState extends State<HomePage> {
                     style: const TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                 ],
+              ),
+            );
+          }
+
+          final columns = SettingsService().columnCount.value;
+          final useGrid = columns > 1 && !enableDrag;
+
+          if (useGrid) {
+            return GridView.builder(
+              padding: const EdgeInsets.all(8),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columns,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 0.85,
+              ),
+              itemCount: filtered.length,
+              itemBuilder: (_, i) => ItemTile(
+                key: ValueKey(filtered[i].id),
+                item: filtered[i],
+                compact: true,
               ),
             );
           }

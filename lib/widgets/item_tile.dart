@@ -8,8 +8,9 @@ import 'add_item_dialog.dart';
 class ItemTile extends StatelessWidget {
   final LaunchItem item;
   final int? index;
+  final bool compact;
 
-  const ItemTile({super.key, required this.item, this.index});
+  const ItemTile({super.key, required this.item, this.index, this.compact = false});
 
   void _onEdit(BuildContext context) async {
     final result = await showDialog<LaunchItem>(
@@ -18,15 +19,12 @@ class ItemTile extends StatelessWidget {
     );
     if (result == null) return;
 
-    // 原快捷键变了 → 先注销旧的
     if (item.hotkeyVirtualKey != null) {
       HotkeyService().unregisterItemHotkey(item);
     }
 
-    // 更新数据
     ItemService().updateItem(result);
 
-    // 新快捷键不为空 → 注册新的
     if (result.hotkeyVirtualKey != null) {
       HotkeyService().registerItemHotkey(result);
     }
@@ -60,6 +58,10 @@ class ItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return compact ? _buildCompact(context) : _buildList(context);
+  }
+
+  Widget _buildList(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Padding(
@@ -74,7 +76,7 @@ class ItemTile extends StatelessWidget {
                   child: Icon(Icons.drag_handle, color: Colors.grey),
                 ),
               ),
-            _buildIcon(),
+            _buildIcon(32),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -112,31 +114,81 @@ class ItemTile extends StatelessWidget {
               _buildHotkeyBadge(),
               const SizedBox(width: 8),
             ],
-            IconButton(
-              icon: const Icon(Icons.play_arrow, color: Colors.green),
-              tooltip: '启动',
-              onPressed: () async {
-                final result = await LaunchService().launch(item);
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(result.success
-                        ? '正在启动 ${item.name}...'
-                        : '启动失败: ${result.errorMessage ?? "未知错误"}'),
-                    duration: Duration(seconds: result.success ? 1 : 3),
-                  ),
-                );
-              },
+            _actionButtons(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompact(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 4),
+            _buildIcon(36),
+            const SizedBox(height: 6),
+            _buildTypeLabel(),
+            const SizedBox(height: 4),
+            Text(
+              item.name,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: '编辑',
-              onPressed: () => _onEdit(context),
+            const SizedBox(height: 2),
+            Text(
+              item.targetPath,
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: '删除',
-              onPressed: () => _onDelete(context),
+            if (item.hotkeyVirtualKey != null) ...[
+              const SizedBox(height: 4),
+              _buildHotkeyBadge(),
+            ],
+            const Spacer(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.play_arrow, color: Colors.green, size: 22),
+                  tooltip: '启动',
+                  onPressed: () async {
+                    final result = await LaunchService().launch(item);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(result.success
+                            ? '正在启动 ${item.name}...'
+                            : '启动失败: ${result.errorMessage ?? "未知错误"}'),
+                        duration: Duration(seconds: result.success ? 1 : 3),
+                      ),
+                    );
+                  },
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 18),
+                  tooltip: '更多',
+                  onSelected: (v) {
+                    if (v == 'edit') _onEdit(context);
+                    if (v == 'delete') _onDelete(context);
+                  },
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'edit', child: Text('编辑')),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text('删除', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -144,23 +196,60 @@ class ItemTile extends StatelessWidget {
     );
   }
 
-  Widget _buildIcon() {
-    switch (item.type) {
-      case ItemType.executable:
-        return const Icon(Icons.miscellaneous_services, color: Colors.blue);
-      case ItemType.batScript:
-        return const Icon(Icons.terminal, color: Colors.orange);
-      case ItemType.file:
-        return const Icon(Icons.description, color: Colors.grey);
-      case ItemType.folder:
-        return const Icon(Icons.folder, color: Colors.amber);
-      case ItemType.system:
-        return const Icon(Icons.power_settings_new, color: Colors.red);
-      case ItemType.command:
-        return const Icon(Icons.terminal, color: Colors.teal);
-      case ItemType.link:
-        return const Icon(Icons.link, color: Colors.blue);
-    }
+  Widget _actionButtons(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.play_arrow, color: Colors.green),
+          tooltip: '启动',
+          onPressed: () async {
+            final result = await LaunchService().launch(item);
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(result.success
+                    ? '正在启动 ${item.name}...'
+                    : '启动失败: ${result.errorMessage ?? "未知错误"}'),
+                duration: Duration(seconds: result.success ? 1 : 3),
+              ),
+            );
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit_outlined),
+          tooltip: '编辑',
+          onPressed: () => _onEdit(context),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline, color: Colors.red),
+          tooltip: '删除',
+          onPressed: () => _onDelete(context),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIcon(double size) {
+    final icon = switch (item.type) {
+      ItemType.executable => Icons.miscellaneous_services,
+      ItemType.batScript => Icons.terminal,
+      ItemType.file => Icons.description,
+      ItemType.folder => Icons.folder,
+      ItemType.system => Icons.power_settings_new,
+      ItemType.command => Icons.terminal,
+      ItemType.link => Icons.link,
+    };
+    final color = switch (item.type) {
+      ItemType.executable => Colors.blue,
+      ItemType.batScript => Colors.orange,
+      ItemType.file => Colors.grey,
+      ItemType.folder => Colors.amber,
+      ItemType.system => Colors.red,
+      ItemType.command => Colors.teal,
+      ItemType.link => Colors.blue,
+    };
+    return Icon(icon, color: color, size: size);
   }
 
   Widget _buildTypeLabel() {

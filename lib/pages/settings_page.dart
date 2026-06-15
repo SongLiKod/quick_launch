@@ -130,6 +130,7 @@ class SettingsPage extends StatelessWidget {
           // ===== 外观 =====
           _sectionHeader(context, '外观'),
           _themeTile(context, service),
+          _columnCountTile(context, service),
           _switchTile(
             context,
             icon: Icons.vertical_align_top,
@@ -413,6 +414,26 @@ class SettingsPage extends StatelessWidget {
               (i) => ButtonSegment(value: modes[i], icon: Icon(icons[i], size: 18))),
           selected: {mode},
           onSelectionChanged: (s) => service.setThemeMode(s.first),
+        ),
+      ),
+    );
+  }
+
+  Widget _columnCountTile(BuildContext context, SettingsService service) {
+    const labels = ['1', '2', '3', '4'];
+    const counts = [1, 2, 3, 4];
+    return ValueListenableBuilder<int>(
+      valueListenable: service.columnCount,
+      builder: (_, count, _) => ListTile(
+        leading: const Icon(Icons.grid_view),
+        title: const Text('列表列数'),
+        subtitle: Text('$count列'),
+        trailing: SegmentedButton<int>(
+          segments: List.generate(4,
+              (i) => ButtonSegment(
+                  value: counts[i], label: Text(labels[i], style: const TextStyle(fontSize: 13)))),
+          selected: {count},
+          onSelectionChanged: (s) => service.setColumnCount(s.first),
         ),
       ),
     );
