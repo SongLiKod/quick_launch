@@ -63,6 +63,12 @@ class ItemService {
     await _save();
   }
 
+  /// 通知监听器数据已变更并持久化（供 GroupService 调用）
+  Future<void> notifyItemsChanged() async {
+    items.value = [...items.value];
+    await _save();
+  }
+
   /// 按当前排序模式排序
   void applySort() {
     final mode = SettingsService().sortMode.value;
