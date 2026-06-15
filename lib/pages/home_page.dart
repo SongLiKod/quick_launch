@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/launch_item.dart';
 import '../services/item_service.dart';
@@ -61,32 +62,45 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildGridView(List<LaunchItem> items, int crossAxisCount) {
-    return GridView.builder(
-      padding: const EdgeInsets.only(top: 8, bottom: 80, left: 8, right: 8),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        childAspectRatio: _aspectRatioForColumns(crossAxisCount),
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-      ),
-      itemCount: items.length,
-      itemBuilder: (_, i) => ItemTile(
-        key: ValueKey(items[i].id),
-        item: items[i],
-        index: i,
-        isGridMode: true,
-      ),
-    );
-  }
-
-  double _aspectRatioForColumns(int cols) {
-    switch (cols) {
-      case 2: return 4.0;
-      case 3: return 3.0;
-      case 4: return 2.4;
-      default: return 2.0;
+  Widget _buildGridLayout(List<LaunchItem> items, int cols) {
+    // 将 items 按列数分组为行
+    final rows = <List<LaunchItem>>[];
+    for (int i = 0; i < items.length; i += cols) {
+      rows.add(items.sublist(i, min(i + cols, items.length)));
     }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8, bottom: 80),
+      itemCount: rows.length,
+      itemBuilder: (_, rowIndex) {
+        final row = rows[rowIndex];
+        return SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              for (int i = 0; i < row.length; i++)
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: i == 0 ? 12 : 4,
+                      right: i == row.length - 1 ? 12 : 4,
+                    ),
+                    child: ItemTile(
+                      key: ValueKey(row[i].id),
+                      item: row[i],
+                      isGridMode: true,
+                    ),
+                  ),
+                ),
+              // 空位补齐，保持对齐
+              if (row.length < cols)
+                for (int i = 0; i < cols - row.length; i++)
+                  const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -171,7 +185,7 @@ class _HomePageState extends State<HomePage> {
           }
 
           if (columnCount > 1) {
-            return _buildGridView(filtered, columnCount);
+            return _buildGridLayout(filtered, columnCount);
           }
 
           if (enableDrag) {

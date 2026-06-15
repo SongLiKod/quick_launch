@@ -164,7 +164,7 @@ class ItemTile extends StatelessWidget {
       child: InkWell(
         onTap: () => _onLaunch(context),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           child: Row(
             children: [
               _buildIcon(size: 20),
