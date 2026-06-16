@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/item_group.dart';
 import 'item_service.dart';
+import 'hotkey_service.dart';
 
 class GroupService {
   static final GroupService _instance = GroupService._internal();
@@ -35,16 +36,26 @@ class GroupService {
     final list = [...groups.value, group];
     groups.value = list;
     await _save();
+    _registerGroupHotkey(group);
   }
 
   Future<void> updateGroup(ItemGroup group) async {
+    // 如果快捷键变了，先注销旧的
+    final old = groups.value.where((g) => g.id == group.id).firstOrNull;
+    if (old != null && old.hasGroupHotkey) {
+      HotkeyService().unregisterGroupHotkey(old.id);
+    }
     final list =
         groups.value.map((e) => e.id == group.id ? group : e).toList();
     groups.value = list;
     await _save();
+    _registerGroupHotkey(group);
   }
 
   Future<void> deleteGroup(String groupId) async {
+    // 注销分组快捷键
+    HotkeyService().unregisterGroupHotkey(groupId);
+
     // 将属于该分组的项移出分组
     final items = ItemService().items.value;
     for (int i = 0; i < items.length; i++) {
@@ -76,6 +87,20 @@ class GroupService {
     if (groupId == null) return null;
     final idx = groups.value.indexWhere((g) => g.id == groupId);
     return idx >= 0 ? groups.value[idx].name : null;
+  }
+
+  void _registerGroupHotkey(ItemGroup group) {
+    if (group.hasGroupHotkey) {
+      HotkeyService().registerGroupHotkey(
+          group.id, group.groupHotkeyModifiers!, group.groupHotkeyVirtualKey!);
+    }
+  }
+
+  /// 从已加载的分组列表恢复所有分组快捷键（启动时调用）
+  void loadAllGroupHotkeys() {
+    for (final group in groups.value) {
+      _registerGroupHotkey(group);
+    }
   }
 
   static const List<int> presetColors = [
