@@ -548,21 +548,45 @@ class SettingsPage extends StatelessWidget {
   }
 
   Widget _sortModeTile(BuildContext context, SettingsService service) {
-    const labels = ['手动', '按名称', '按创建时间', '按类型'];
-    const modes = [SortMode.manual, SortMode.name, SortMode.created, SortMode.type];
+    const labels = ['手动', '按名称', '按创建时间', '按类型', '最常用', '最近使用'];
+    const modes = [
+      SortMode.manual,
+      SortMode.name,
+      SortMode.created,
+      SortMode.type,
+      SortMode.mostUsed,
+      SortMode.recentlyUsed,
+    ];
+    const icons = [
+      Icons.touch_app,
+      Icons.sort_by_alpha,
+      Icons.access_time,
+      Icons.category,
+      Icons.trending_up,
+      Icons.history,
+    ];
     return ValueListenableBuilder<SortMode>(
       valueListenable: service.sortMode,
       builder: (_, mode, _) => ListTile(
         leading: const Icon(Icons.sort),
         title: const Text('排序方式'),
-        subtitle: Text(labels[modes.indexOf(mode)]),
-        trailing: SegmentedButton<SortMode>(
-          segments: List.generate(4,
-              (i) => ButtonSegment(
-                  value: modes[i], label: Text(labels[i], style: const TextStyle(fontSize: 12)))),
-          selected: {mode},
-          onSelectionChanged: (s) {
-            service.setSortMode(s.first);
+        trailing: DropdownButton<SortMode>(
+          value: mode,
+          underline: const SizedBox.shrink(),
+          items: List.generate(6, (i) => DropdownMenuItem(
+            value: modes[i],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icons[i], size: 18),
+                const SizedBox(width: 8),
+                Text(labels[i]),
+              ],
+            ),
+          )),
+          onChanged: (v) {
+            if (v == null) return;
+            service.setSortMode(v);
             ItemService().applySort();
           },
         ),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 排序模式
-enum SortMode { manual, name, created, type }
+enum SortMode { manual, name, created, type, mostUsed, recentlyUsed }
 
 class SettingsService {
   static final SettingsService _instance = SettingsService._internal();
@@ -168,6 +168,8 @@ class SettingsService {
       case 'name': return SortMode.name;
       case 'created': return SortMode.created;
       case 'type': return SortMode.type;
+      case 'mostUsed': return SortMode.mostUsed;
+      case 'recentlyUsed': return SortMode.recentlyUsed;
       default: return SortMode.manual;
     }
   }
@@ -177,6 +179,8 @@ class SettingsService {
       case SortMode.name: return 'name';
       case SortMode.created: return 'created';
       case SortMode.type: return 'type';
+      case SortMode.mostUsed: return 'mostUsed';
+      case SortMode.recentlyUsed: return 'recentlyUsed';
       case SortMode.manual: return 'manual';
     }
   }

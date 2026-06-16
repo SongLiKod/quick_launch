@@ -10,6 +10,8 @@ class LaunchItem {
   bool runAsAdmin;
   DateTime createdAt;
   String? groupId;
+  int launchCount;
+  DateTime? lastLaunchAt;
 
   LaunchItem({
     required this.id,
@@ -21,6 +23,8 @@ class LaunchItem {
     this.runAsAdmin = false,
     DateTime? createdAt,
     this.groupId,
+    this.launchCount = 0,
+    this.lastLaunchAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -33,6 +37,8 @@ class LaunchItem {
         'runAsAdmin': runAsAdmin,
         'createdAt': createdAt.toIso8601String(),
         'groupId': groupId,
+        'launchCount': launchCount,
+        'lastLaunchAt': lastLaunchAt?.toIso8601String(),
       };
 
   factory LaunchItem.fromJson(Map<String, dynamic> json) => LaunchItem(
@@ -45,5 +51,9 @@ class LaunchItem {
         runAsAdmin: json['runAsAdmin'] as bool? ?? false,
         createdAt: DateTime.parse(json['createdAt'] as String),
         groupId: json['groupId'] as String?,
+        launchCount: json['launchCount'] as int? ?? 0,
+        lastLaunchAt: json['lastLaunchAt'] != null
+            ? DateTime.parse(json['lastLaunchAt'] as String)
+            : null,
       );
 }

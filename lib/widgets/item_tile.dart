@@ -107,6 +107,10 @@ class ItemTile extends StatelessWidget {
                   Row(
                     children: [
                       _buildTypeLabel(),
+                      if (_isStale()) ...[
+                        const SizedBox(width: 4),
+                        _buildStaleBadge(),
+                      ],
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -186,6 +190,10 @@ class ItemTile extends StatelessWidget {
                     Row(
                       children: [
                         _buildTypeLabel(),
+                        if (_isStale()) ...[
+                          const SizedBox(width: 4),
+                          _buildStaleBadge(),
+                        ],
                         if (item.hotkeyVirtualKey != null) ...[
                           const SizedBox(width: 4),
                           _buildHotkeyBadge(),
@@ -321,6 +329,27 @@ class ItemTile extends StatelessWidget {
       child: Text(
         '${mod.join('+')}+$keyName',
         style: TextStyle(fontSize: 11, color: Colors.blue[800]),
+      ),
+    );
+  }
+
+  bool _isStale() {
+    if (item.lastLaunchAt == null) return false;
+    final daysSinceLastUse = DateTime.now().difference(item.lastLaunchAt!).inDays;
+    return daysSinceLastUse >= 30;
+  }
+
+  Widget _buildStaleBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        item.lastLaunchAt == null ? '未使用' : '30天未使用',
+        style: const TextStyle(fontSize: 10, color: Colors.orange, height: 1.3),
       ),
     );
   }
