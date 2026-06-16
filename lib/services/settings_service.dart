@@ -20,6 +20,9 @@ class SettingsService {
   // 显示窗口快捷键
   final ValueNotifier<int?> showWindowModifiers = ValueNotifier(null);
   final ValueNotifier<int?> showWindowKey = ValueNotifier(null);
+  // 搜索快捷键
+  final ValueNotifier<int?> searchHotkeyModifiers = ValueNotifier(null);
+  final ValueNotifier<int?> searchHotkeyKey = ValueNotifier(null);
   // 自定义图标路径
   final ValueNotifier<String?> customIconPath = ValueNotifier(null);
   // 多列展示
@@ -36,6 +39,8 @@ class SettingsService {
   static const _kSortMode = 'sort_mode';
   static const _kShowWindowModifiers = 'show_window_modifiers';
   static const _kShowWindowKey = 'show_window_key';
+  static const _kSearchHotkeyModifiers = 'search_hotkey_modifiers';
+  static const _kSearchHotkeyKey = 'search_hotkey_key';
   static const _kCustomIconPath = 'custom_icon_path';
   static const _kColumnCount = 'column_count';
 
@@ -53,6 +58,10 @@ class SettingsService {
     showWindowModifiers.value = (swm != null && swm >= 0) ? swm : null;
     final swk = _prefs.getInt(_kShowWindowKey);
     showWindowKey.value = (swk != null && swk >= 0) ? swk : null;
+    final shm = _prefs.getInt(_kSearchHotkeyModifiers);
+    searchHotkeyModifiers.value = (shm != null && shm >= 0) ? shm : null;
+    final shk = _prefs.getInt(_kSearchHotkeyKey);
+    searchHotkeyKey.value = (shk != null && shk >= 0) ? shk : null;
     customIconPath.value = _prefs.getString(_kCustomIconPath);
     columnCount.value = _prefs.getInt(_kColumnCount) ?? 1;
   }
@@ -101,6 +110,14 @@ class SettingsService {
     showWindowKey.value = key;
     await _prefs.setInt(_kShowWindowModifiers, modifiers ?? -1);
     await _prefs.setInt(_kShowWindowKey, key ?? -1);
+  }
+
+  Future<void> setSearchHotkey(int? modifiers, int? key) async {
+    // 先设 key 再设 modifiers — 确保监听 searchHotkeyModifiers 时 key 已就绪
+    searchHotkeyKey.value = key;
+    searchHotkeyModifiers.value = modifiers;
+    await _prefs.setInt(_kSearchHotkeyModifiers, modifiers ?? -1);
+    await _prefs.setInt(_kSearchHotkeyKey, key ?? -1);
   }
 
   Future<void> setCustomIconPath(String? path) async {

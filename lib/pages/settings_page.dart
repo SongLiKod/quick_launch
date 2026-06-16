@@ -188,6 +188,8 @@ class SettingsPage extends StatelessWidget {
           ),
           // 显示窗口快捷键
           _showWindowHotkeyTile(context, service),
+          // 搜索快捷键
+          _searchHotkeyTile(context, service),
           const Divider(height: 1),
 
           // ===== 列表管理 =====
@@ -331,6 +333,105 @@ class SettingsPage extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('显示窗口快捷键已设为 ${formatHotkeyLabel(modifiers, vk)}'),
+                ),
+              );
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------- 搜索快捷键 ----------
+
+  Widget _searchHotkeyTile(BuildContext context, SettingsService service) {
+    return ValueListenableBuilder<int?>(
+      valueListenable: service.searchHotkeyModifiers,
+      builder: (_, mods, _) {
+        final key = service.searchHotkeyKey.value;
+        final label = formatHotkeyLabel(mods, key);
+        return ListTile(
+          leading: const Icon(Icons.search),
+          title: const Text('全局搜索快捷键'),
+          subtitle: Text(
+            label == '未设置' ? '未设置' : '按 $label 打开全局搜索',
+          ),
+          trailing: TextButton(
+            onPressed: () => _editSearchHotkey(context, service),
+            child: Text(key == null ? '设置' : '修改'),
+          ),
+        );
+      },
+    );
+  }
+
+  void _editSearchHotkey(BuildContext context, SettingsService service) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('全局搜索快捷键'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('输入快捷键组合，按下后在任何界面快速弹出搜索面板：'),
+            const SizedBox(height: 8),
+            Text(
+              '  Ctrl+Shift+F\n  Alt+Space\n  Ctrl+Shift+Space',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '快捷键',
+                hintText: 'Alt+Space',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              service.setSearchHotkey(null, null);
+              HotkeyService().unregisterSearchHotkey();
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('已清除全局搜索快捷键')),
+              );
+            },
+            child: const Text('清除', style: TextStyle(color: Colors.red)),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+
+              final result = parseHotkeyText(text);
+              if (result == null) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('无效格式，请使用 Ctrl+Alt+A 格式')),
+                );
+                return;
+              }
+              final (modifiers, vk) = result;
+
+              // 注册新热键（先注销旧的）
+              HotkeyService().unregisterSearchHotkey();
+              HotkeyService().registerSearchHotkey(modifiers, vk);
+              service.setSearchHotkey(modifiers, vk);
+
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('全局搜索快捷键已设为 ${formatHotkeyLabel(modifiers, vk)}'),
                 ),
               );
             },

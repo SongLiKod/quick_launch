@@ -12,6 +12,7 @@ import 'services/launch_log_service.dart';
 import 'services/update_service.dart';
 import 'services/group_service.dart';
 import 'utils/tray_icon.dart';
+import 'widgets/search_overlay.dart';
 
 late final SystemTray systemTray;
 const MethodChannel _settingsChannel = MethodChannel('quick_launch/settings');
@@ -109,6 +110,12 @@ Future<void> _startupAfterRunApp() async {
     }
   };
 
+  // 8c. Setup callback: when search hotkey fires, open search overlay
+  // SearchOverlay.open() 会自动将窗口设为无边框、缩小居中、显示并推入搜索路由
+  HotkeyService().onSearchHotkey = () {
+    SearchOverlay.open();
+  };
+
   // 9. Register show-window hotkey if configured
   final showMods = SettingsService().showWindowModifiers.value;
   final showKey = SettingsService().showWindowKey.value;
@@ -119,6 +126,13 @@ Future<void> _startupAfterRunApp() async {
   // 9b. Register all group hotkeys
   GroupService().loadAllGroupHotkeys();
 
+  // 9c. Register search hotkey if configured
+  final searchMods = SettingsService().searchHotkeyModifiers.value;
+  final searchKey = SettingsService().searchHotkeyKey.value;
+  if (searchMods != null && searchKey != null) {
+    HotkeyService().registerSearchHotkey(searchMods, searchKey);
+  }
+
   // 10. Listen for show-window hotkey changes from settings
   SettingsService().showWindowModifiers.addListener(() {
     HotkeyService().unregisterShowWindowHotkey();
@@ -126,6 +140,16 @@ Future<void> _startupAfterRunApp() async {
     final k = SettingsService().showWindowKey.value;
     if (m != null && k != null) {
       HotkeyService().registerShowWindowHotkey(m, k);
+    }
+  });
+
+  // 10b. Listen for search hotkey changes from settings
+  SettingsService().searchHotkeyModifiers.addListener(() {
+    HotkeyService().unregisterSearchHotkey();
+    final m = SettingsService().searchHotkeyModifiers.value;
+    final k = SettingsService().searchHotkeyKey.value;
+    if (m != null && k != null) {
+      HotkeyService().registerSearchHotkey(m, k);
     }
   });
 
