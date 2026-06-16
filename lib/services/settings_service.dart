@@ -113,8 +113,9 @@ class SettingsService {
   }
 
   Future<void> setSearchHotkey(int? modifiers, int? key) async {
-    searchHotkeyModifiers.value = modifiers;
+    // 先设 key 再设 modifiers — 确保监听 searchHotkeyModifiers 时 key 已就绪
     searchHotkeyKey.value = key;
+    searchHotkeyModifiers.value = modifiers;
     await _prefs.setInt(_kSearchHotkeyModifiers, modifiers ?? -1);
     await _prefs.setInt(_kSearchHotkeyKey, key ?? -1);
   }

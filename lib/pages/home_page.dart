@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:win32/win32.dart';
 import '../models/launch_item.dart';
 import '../services/item_service.dart';
 import '../services/hotkey_service.dart';
@@ -74,6 +76,12 @@ class _HomePageState extends State<HomePage> {
     // 清空触发器，防止重复触发
     HotkeyService().searchHotkeyTrigger.value = false;
     if (!mounted) return;
+    // 先显示窗口，再弹出搜索覆盖层
+    final hwnd = appWindow.handle;
+    if (hwnd != null) {
+      ShowWindow(hwnd, SW_RESTORE);
+      SetForegroundWindow(hwnd);
+    }
     SearchOverlay.show(context);
   }
 

@@ -16,7 +16,7 @@ class SearchOverlay extends StatefulWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: '关闭',
-      barrierColor: Colors.black54,
+      barrierColor: Colors.black,
       transitionDuration: const Duration(milliseconds: 150),
       pageBuilder: (ctx, anim1, anim2) => const SearchOverlay(),
     );

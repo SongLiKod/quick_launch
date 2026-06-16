@@ -111,11 +111,7 @@ Future<void> _startupAfterRunApp() async {
 
   // 8c. Setup callback: when search hotkey fires, bring window to front
   HotkeyService().onSearchHotkey = () {
-    final hwnd = appWindow.handle;
-    if (hwnd != null) {
-      ShowWindow(hwnd, SW_RESTORE);
-      SetForegroundWindow(hwnd);
-    }
+    // 窗口显示由 HomePage._onSearchHotkeyTriggered 在弹出搜索前处理
   };
 
   // 9. Register show-window hotkey if configured
