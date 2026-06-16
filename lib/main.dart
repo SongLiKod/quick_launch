@@ -110,17 +110,10 @@ Future<void> _startupAfterRunApp() async {
     }
   };
 
-  // 8c. Setup callback: when search hotkey fires, show window + push search route
+  // 8c. Setup callback: when search hotkey fires, open search overlay
+  // SearchOverlay.open() 会自动将窗口设为无边框、缩小居中、显示并推入搜索路由
   HotkeyService().onSearchHotkey = () {
-    final hwnd = appWindow.handle;
-    if (hwnd != null) {
-      ShowWindow(hwnd, SW_RESTORE);
-      SetForegroundWindow(hwnd);
-    }
-    // 在下一帧推入搜索路由，搜索页面关闭时自动隐藏窗口
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      SearchOverlay.open();
-    });
+    SearchOverlay.open();
   };
 
   // 9. Register show-window hotkey if configured

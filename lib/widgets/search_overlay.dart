@@ -9,23 +9,57 @@ import '../services/launch_service.dart';
 import '../app.dart';
 
 /// 全局快速搜索页面 — 按下全局搜索热键后弹出
-/// 
-/// 使用单独的 PageRoute 完全覆盖主界面，不给主界面任何显示机会。
+///
+/// 以无边框小窗口形式呈现，类似 Spotlight / PowerToys Run 风格。
 class SearchOverlay extends StatefulWidget {
   const SearchOverlay({super.key});
 
-  /// 通过全局 navigatorKey 推入搜索路由
+  /// 准备窗口并推入搜索路由
+  ///
+  /// 1. 保存当前窗口状态（边框、尺寸）
+  /// 2. 将窗口设为无边框 + 缩小居中
+  /// 3. 显示窗口 + 推入搜索页面
   static void open() {
+    // 保存当前窗口状态
+    _savedBorderless = appWindow.borderless;
+    _savedWidth = appWindow.size.width;
+    _savedHeight = appWindow.size.height;
+
+    // 无边框 + 搜索面板尺寸
+    appWindow.borderless = true;
+    const double w = 620;
+    const double h = 500;
+    appWindow.size = Size(w, h);
+
+    // 居中显示
+    final screenW = GetSystemMetrics(SM_CXSCREEN);
+    final screenH = GetSystemMetrics(SM_CYSCREEN);
+    appWindow.position = Offset(
+      (screenW - w) / 2,
+      (screenH - h) / 2,
+    );
+
+    // 显示窗口
+    final hwnd = appWindow.handle;
+    if (hwnd != null) {
+      ShowWindow(hwnd, SW_RESTORE);
+      SetForegroundWindow(hwnd);
+    }
+
+    // 推入搜索路由
     final nav = navigatorKey.currentState;
-    if (nav == null) return;
-    nav.push(
+    nav?.push(
       MaterialPageRoute(
         builder: (_) => const SearchOverlay(),
-        // 全屏不透明，完全覆盖主界面
         fullscreenDialog: true,
       ),
     );
   }
+
+  // ---- 保存/恢复窗口状态 ----
+  static bool _savedBorderless = false;
+  static double _savedWidth = 0;
+  static double _savedHeight = 0;
 
   @override
   State<SearchOverlay> createState() => _SearchOverlayState();
@@ -82,9 +116,16 @@ class _SearchOverlayState extends State<SearchOverlay> {
   }
 
   void _close() {
-    // 关闭搜索页面
+    // 先弹出搜索路由
     Navigator.of(context).pop();
-    // 隐藏主窗口
+
+    // 恢复窗口状态（边框、尺寸）
+    appWindow.borderless = SearchOverlay._savedBorderless;
+    if (SearchOverlay._savedWidth > 0 && SearchOverlay._savedHeight > 0) {
+      appWindow.size = Size(SearchOverlay._savedWidth, SearchOverlay._savedHeight);
+    }
+
+    // 隐藏窗口
     final hwnd = appWindow.handle;
     if (hwnd != null) {
       ShowWindow(hwnd, SW_HIDE);
@@ -143,7 +184,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
           child: SafeArea(
             child: Column(
               children: [
-                // 顶部留白让搜索框更居中
                 const Spacer(flex: 3),
                 // ---- 搜索面板 ----
                 Padding(
@@ -153,7 +193,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     child: Container(
                       constraints: const BoxConstraints(
                         maxWidth: 560,
-                        maxHeight: 460,
+                        maxHeight: 420,
                       ),
                       decoration: BoxDecoration(
                         color: theme.dialogTheme.backgroundColor ??
@@ -230,10 +270,10 @@ class _SearchOverlayState extends State<SearchOverlay> {
                               padding: EdgeInsets.all(40),
                               child: Column(
                                 children: [
-                                  Icon(Icons.search_off,
+                                  Icon(Icons.inbox,
                                       size: 48, color: Colors.grey),
                                   SizedBox(height: 12),
-                                  Text('没有匹配的启动项',
+                                  Text('没有启动项',
                                       style: TextStyle(color: Colors.grey)),
                                 ],
                               ),
@@ -260,7 +300,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
                                           horizontal: 16, vertical: 10),
                                       decoration: BoxDecoration(
                                         color: selected
-                                            ? theme.colorScheme.primaryContainer
+                                            ? theme.colorScheme
+                                                .primaryContainer
                                                 .withValues(alpha: 0.4)
                                             : null,
                                         border: Border(
@@ -339,7 +380,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     ),
                   ),
                 ),
-                // 底部留白
                 const Spacer(flex: 4),
               ],
             ),
