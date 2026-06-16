@@ -15,37 +15,8 @@ class SearchOverlay extends StatefulWidget {
   const SearchOverlay({super.key});
 
   /// 准备窗口并推入搜索路由
-  ///
-  /// 1. 保存当前窗口状态（边框、尺寸）
-  /// 2. 将窗口设为无边框 + 缩小居中
-  /// 3. 显示窗口 + 推入搜索页面
   static void open() {
-    // 保存当前窗口状态
-    _savedBorderless = appWindow.borderless;
-    _savedWidth = appWindow.size.width;
-    _savedHeight = appWindow.size.height;
-
-    // 无边框 + 搜索面板尺寸
-    appWindow.borderless = true;
-    const double w = 620;
-    const double h = 500;
-    appWindow.size = Size(w, h);
-
-    // 居中显示
-    final screenW = GetSystemMetrics(SM_CXSCREEN);
-    final screenH = GetSystemMetrics(SM_CYSCREEN);
-    appWindow.position = Offset(
-      (screenW - w) / 2,
-      (screenH - h) / 2,
-    );
-
-    // 显示窗口
-    final hwnd = appWindow.handle;
-    if (hwnd != null) {
-      ShowWindow(hwnd, SW_RESTORE);
-      SetForegroundWindow(hwnd);
-    }
-
+    _enterSearchMode();
     // 推入搜索路由
     final nav = navigatorKey.currentState;
     nav?.push(
@@ -56,10 +27,85 @@ class SearchOverlay extends StatefulWidget {
     );
   }
 
-  // ---- 保存/恢复窗口状态 ----
-  static bool _savedBorderless = false;
+  // ---- 窗口状态保存/恢复 ----
+  static int _savedStyle = 0;
   static double _savedWidth = 0;
   static double _savedHeight = 0;
+  static double _savedLeft = 0;
+  static double _savedTop = 0;
+
+  static void _enterSearchMode() {
+    final hwnd = appWindow.handle;
+    if (hwnd == null) return;
+
+    // 保存当前窗口样式和尺寸/位置
+    _savedStyle = GetWindowLongPtr(hwnd, GWL_STYLE);
+    _savedWidth = appWindow.size.width;
+    _savedHeight = appWindow.size.height;
+    _savedLeft = appWindow.position.x;
+    _savedTop = appWindow.position.y;
+
+    // 移除标题栏/边框样式（WS_CAPTION | WS_THICKFRAME | WS_SYSMENU）
+    const removedStyle = WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
+    final newStyle = _savedStyle & ~removedStyle;
+    SetWindowLongPtr(hwnd, GWL_STYLE, newStyle);
+
+    // 应用样式变更
+    SetWindowPos(
+      hwnd,
+      HWND_NOTOPMOST,
+      0,
+      0,
+      620,
+      500,
+      SWP_NOMOVE | SWP_FRAMECHANGED,
+    );
+
+    // 居中
+    final screenW = GetSystemMetrics(SM_CXSCREEN);
+    final screenH = GetSystemMetrics(SM_CYSCREEN);
+    final x = (screenW - 620) ~/ 2;
+    final y = (screenH - 500) ~/ 2;
+    SetWindowPos(hwnd, HWND_NOTOPMOST, x, y, 620, 500, SWP_NOZORDER);
+
+    // 显示并置前
+    ShowWindow(hwnd, SW_RESTORE);
+    SetForegroundWindow(hwnd);
+  }
+
+  static void _exitSearchMode() {
+    final hwnd = appWindow.handle;
+    if (hwnd == null) return;
+
+    // 恢复窗口样式
+    SetWindowLongPtr(hwnd, GWL_STYLE, _savedStyle);
+
+    // 恢复尺寸和位置
+    if (_savedWidth > 0 && _savedHeight > 0) {
+      SetWindowPos(
+        hwnd,
+        HWND_NOTOPMOST,
+        _savedLeft.toInt(),
+        _savedTop.toInt(),
+        _savedWidth.toInt(),
+        _savedHeight.toInt(),
+        SWP_FRAMECHANGED,
+      );
+    } else {
+      SetWindowPos(
+        hwnd,
+        HWND_NOTOPMOST,
+        0,
+        0,
+        0,
+        0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED,
+      );
+    }
+
+    // 隐藏窗口
+    ShowWindow(hwnd, SW_HIDE);
+  }
 
   @override
   State<SearchOverlay> createState() => _SearchOverlayState();
@@ -111,25 +157,15 @@ class _SearchOverlayState extends State<SearchOverlay> {
   }
 
   void _launchItem(LaunchItem item) {
-    _close();
+    // 先退出搜索模式（恢复窗口并隐藏），再启动
+    SearchOverlay._exitSearchMode();
+    Navigator.of(context).pop();
     LaunchService().launch(item);
   }
 
   void _close() {
-    // 先弹出搜索路由
+    SearchOverlay._exitSearchMode();
     Navigator.of(context).pop();
-
-    // 恢复窗口状态（边框、尺寸）
-    appWindow.borderless = SearchOverlay._savedBorderless;
-    if (SearchOverlay._savedWidth > 0 && SearchOverlay._savedHeight > 0) {
-      appWindow.size = Size(SearchOverlay._savedWidth, SearchOverlay._savedHeight);
-    }
-
-    // 隐藏窗口
-    final hwnd = appWindow.handle;
-    if (hwnd != null) {
-      ShowWindow(hwnd, SW_HIDE);
-    }
   }
 
   String? _getGroupName(String? groupId) {
