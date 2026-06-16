@@ -12,6 +12,7 @@ import 'services/launch_log_service.dart';
 import 'services/update_service.dart';
 import 'services/group_service.dart';
 import 'utils/tray_icon.dart';
+import 'widgets/search_overlay.dart';
 
 late final SystemTray systemTray;
 const MethodChannel _settingsChannel = MethodChannel('quick_launch/settings');
@@ -109,9 +110,17 @@ Future<void> _startupAfterRunApp() async {
     }
   };
 
-  // 8c. Setup callback: when search hotkey fires, bring window to front
+  // 8c. Setup callback: when search hotkey fires, show window + push search route
   HotkeyService().onSearchHotkey = () {
-    // 窗口显示由 HomePage._onSearchHotkeyTriggered 在弹出搜索前处理
+    final hwnd = appWindow.handle;
+    if (hwnd != null) {
+      ShowWindow(hwnd, SW_RESTORE);
+      SetForegroundWindow(hwnd);
+    }
+    // 在下一帧推入搜索路由，搜索页面关闭时自动隐藏窗口
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SearchOverlay.open();
+    });
   };
 
   // 9. Register show-window hotkey if configured

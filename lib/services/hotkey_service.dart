@@ -32,9 +32,6 @@ class HotkeyService {
   // 分组快捷键触发通知（HomePage 监听此 notifier 弹出选择覆盖层）
   final ValueNotifier<String?> groupHotkeyTrigger = ValueNotifier(null);
 
-  // 搜索快捷键触发通知（HomePage 监听此 notifier 弹出搜索覆盖层）
-  final ValueNotifier<bool> searchHotkeyTrigger = ValueNotifier(false);
-
   void setWindowHandle(int hWnd) {
     _hWnd = hWnd;
   }
@@ -114,7 +111,6 @@ class HotkeyService {
     }
     if (hotkeyId == searchHotkeyId) {
       onSearchHotkey?.call();
-      searchHotkeyTrigger.value = true;
       return;
     }
     final item = _hotkeyMap[hotkeyId];

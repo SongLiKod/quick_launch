@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:win32/win32.dart';
 import '../models/launch_item.dart';
 import '../services/item_service.dart';
 import '../services/group_service.dart';
 import '../services/launch_service.dart';
+import '../app.dart';
 
-/// 全局快速搜索弹窗（Spotlight 风格）
-/// 通过全局热键触发，实时搜索所有启动项并快速启动
+/// 全局快速搜索页面 — 按下全局搜索热键后弹出
+/// 
+/// 使用单独的 PageRoute 完全覆盖主界面，不给主界面任何显示机会。
 class SearchOverlay extends StatefulWidget {
   const SearchOverlay({super.key});
 
-  /// 展示搜索覆盖层
-  static void show(BuildContext context) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: '关闭',
-      barrierColor: Colors.black,
-      transitionDuration: const Duration(milliseconds: 150),
-      pageBuilder: (ctx, anim1, anim2) => const SearchOverlay(),
+  /// 通过全局 navigatorKey 推入搜索路由
+  static void open() {
+    final nav = navigatorKey.currentState;
+    if (nav == null) return;
+    nav.push(
+      MaterialPageRoute(
+        builder: (_) => const SearchOverlay(),
+        // 全屏不透明，完全覆盖主界面
+        fullscreenDialog: true,
+      ),
     );
   }
 
@@ -72,8 +77,18 @@ class _SearchOverlayState extends State<SearchOverlay> {
   }
 
   void _launchItem(LaunchItem item) {
-    Navigator.of(context).pop();
+    _close();
     LaunchService().launch(item);
+  }
+
+  void _close() {
+    // 关闭搜索页面
+    Navigator.of(context).pop();
+    // 隐藏主窗口
+    final hwnd = appWindow.handle;
+    if (hwnd != null) {
+      ShowWindow(hwnd, SW_HIDE);
+    }
   }
 
   String? _getGroupName(String? groupId) {
@@ -88,227 +103,245 @@ class _SearchOverlayState extends State<SearchOverlay> {
     final theme = Theme.of(context);
     final items = _filteredItems;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 64),
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 500),
-            decoration: BoxDecoration(
-              color: theme.dialogTheme.backgroundColor ??
-                  theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 32,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Focus(
-              focusNode: _overlayFocusNode,
-              autofocus: true,
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent || event is KeyRepeatEvent) {
-                  if (event.logicalKey == LogicalKeyboardKey.escape) {
-                    Navigator.of(context).pop();
-                    return KeyEventResult.handled;
-                  }
-                  if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                    setState(() {
-                      _selectedIndex =
-                          (_selectedIndex + 1) % items.length;
-                    });
-                    return KeyEventResult.handled;
-                  }
-                  if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                    setState(() {
-                      _selectedIndex = (_selectedIndex - 1 + items.length) %
-                          items.length;
-                    });
-                    return KeyEventResult.handled;
-                  }
-                  if (event.logicalKey == LogicalKeyboardKey.enter) {
-                    if (items.isNotEmpty &&
-                        _selectedIndex >= 0 &&
-                        _selectedIndex < items.length) {
-                      _launchItem(items[_selectedIndex]);
-                      return KeyEventResult.handled;
-                    }
-                  }
-                }
-                return KeyEventResult.ignored;
-              },
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // ---- 搜索输入框 ----
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: theme.dividerColor.withValues(alpha: 0.3),
-                        ),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Focus(
+        focusNode: _overlayFocusNode,
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+            if (event.logicalKey == LogicalKeyboardKey.escape) {
+              _close();
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              setState(() {
+                _selectedIndex = (_selectedIndex + 1) % items.length;
+              });
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              setState(() {
+                _selectedIndex =
+                    (_selectedIndex - 1 + items.length) % items.length;
+              });
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.enter) {
+              if (items.isNotEmpty &&
+                  _selectedIndex >= 0 &&
+                  _selectedIndex < items.length) {
+                _launchItem(items[_selectedIndex]);
+                return KeyEventResult.handled;
+              }
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Container(
+          color: Colors.black,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // 顶部留白让搜索框更居中
+                const Spacer(flex: 3),
+                // ---- 搜索面板 ----
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        maxWidth: 560,
+                        maxHeight: 460,
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.search,
-                            color: theme.colorScheme.primary, size: 22),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocusNode,
-                            autofocus: true,
-                            decoration: const InputDecoration(
-                              hintText: '搜索启动项...',
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            style: const TextStyle(fontSize: 16),
+                      decoration: BoxDecoration(
+                        color: theme.dialogTheme.backgroundColor ??
+                            theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 40,
+                            offset: const Offset(0, 12),
                           ),
-                        ),
-                        if (_searchController.text.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.clear, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              _searchFocusNode.requestFocus();
-                            },
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                                minWidth: 28, minHeight: 28),
-                          ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${items.length}项',
-                          style: TextStyle(
-                              fontSize: 12, color: Colors.grey[500]),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // ---- 结果列表 ----
-                  if (items.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Column(
-                        children: [
-                          Icon(Icons.search_off,
-                              size: 48, color: Colors.grey),
-                          SizedBox(height: 12),
-                          Text('没有匹配的启动项',
-                              style: TextStyle(color: Colors.grey)),
                         ],
                       ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        itemCount: items.length,
-                        itemBuilder: (_, i) {
-                          final item = items[i];
-                          final selected = i == _selectedIndex;
-                          final groupName = _getGroupName(item.groupId);
-                          return InkWell(
-                            onTap: () => _launchItem(item),
-                            onHover: (_) {
-                              if (_selectedIndex != i) {
-                                setState(() => _selectedIndex = i);
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? theme.colorScheme.primaryContainer
-                                        .withValues(alpha: 0.4)
-                                    : null,
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: theme.dividerColor
-                                        .withValues(alpha: 0.15),
-                                  ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // ---- 搜索输入框 ----
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: theme.dividerColor
+                                      .withValues(alpha: 0.3),
                                 ),
                               ),
-                              child: Row(
-                                children: [
-                                  // 图标
-                                  _buildItemIcon(item),
-                                  const SizedBox(width: 12),
-                                  // 名称+路径
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 14,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          item.targetPath,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey[500],
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.search,
+                                    color: theme.colorScheme.primary,
+                                    size: 22),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    focusNode: _searchFocusNode,
+                                    autofocus: true,
+                                    decoration: const InputDecoration(
+                                      hintText: '搜索启动项...',
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
                                     ),
+                                    style: const TextStyle(fontSize: 16),
                                   ),
-                                  const SizedBox(width: 8),
-                                  // 类型标签
-                                  _buildTypeLabel(item),
-                                  if (groupName != null) ...[
-                                    const SizedBox(width: 4),
-                                    _buildGroupBadge(groupName),
-                                  ],
+                                ),
+                                if (_searchController.text.isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _searchFocusNode.requestFocus();
+                                    },
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                        minWidth: 28, minHeight: 28),
+                                  ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${items.length}项',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey[500]),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // ---- 结果列表 ----
+                          if (items.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Column(
+                                children: [
+                                  Icon(Icons.search_off,
+                                      size: 48, color: Colors.grey),
+                                  SizedBox(height: 12),
+                                  Text('没有匹配的启动项',
+                                      style: TextStyle(color: Colors.grey)),
                                 ],
                               ),
+                            )
+                          else
+                            Flexible(
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: items.length,
+                                itemBuilder: (_, i) {
+                                  final item = items[i];
+                                  final selected = i == _selectedIndex;
+                                  final groupName = _getGroupName(item.groupId);
+                                  return InkWell(
+                                    onTap: () => _launchItem(item),
+                                    onHover: (_) {
+                                      if (_selectedIndex != i) {
+                                        setState(() => _selectedIndex = i);
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: selected
+                                            ? theme.colorScheme.primaryContainer
+                                                .withValues(alpha: 0.4)
+                                            : null,
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: theme.dividerColor
+                                                .withValues(alpha: 0.15),
+                                          ),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          _buildItemIcon(item),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  item.name,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 14,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                const SizedBox(height: 2),
+                                                Text(
+                                                  item.targetPath,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey[500],
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          _buildTypeLabel(item),
+                                          if (groupName != null) ...[
+                                            const SizedBox(width: 4),
+                                            _buildGroupBadge(groupName),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
-                          );
-                        },
+                          // ---- 底部提示 ----
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.3),
+                            ),
+                            child: Row(
+                              children: [
+                                _bottomHint('↑↓', '选择'),
+                                const SizedBox(width: 12),
+                                _bottomHint('⏎', '启动'),
+                                const SizedBox(width: 12),
+                                _bottomHint('Esc', '关闭'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  // ---- 底部快捷键提示 ----
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.3),
-                    ),
-                    child: Row(
-                      children: [
-                        _bottomHint('↑↓', '选择'),
-                        const SizedBox(width: 12),
-                        _bottomHint('⏎', '启动'),
-                        const SizedBox(width: 12),
-                        _bottomHint('Esc', '关闭'),
-                      ],
-                    ),
                   ),
-                ],
-              ),
+                ),
+                // 底部留白
+                const Spacer(flex: 4),
+              ],
             ),
           ),
         ),
@@ -329,7 +362,9 @@ class _SearchOverlayState extends State<SearchOverlay> {
           child: Text(
             key,
             style: const TextStyle(
-                fontSize: 10, fontWeight: FontWeight.w600),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.white70),
           ),
         ),
         const SizedBox(width: 4),
@@ -343,8 +378,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
   Widget _buildItemIcon(LaunchItem item) {
     final (icon, color) = switch (item.type) {
-      ItemType.executable =>
-        (Icons.miscellaneous_services, Colors.blue),
+      ItemType.executable => (Icons.miscellaneous_services, Colors.blue),
       ItemType.batScript => (Icons.terminal, Colors.orange),
       ItemType.file => (Icons.description, Colors.grey),
       ItemType.folder => (Icons.folder, Colors.amber),

@@ -1,7 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
-import 'package:win32/win32.dart';
 import '../models/launch_item.dart';
 import '../services/item_service.dart';
 import '../services/hotkey_service.dart';
@@ -13,7 +11,6 @@ import '../widgets/item_tile.dart';
 import '../widgets/add_item_dialog.dart';
 import '../widgets/group_manage_dialog.dart';
 import '../widgets/group_hotkey_overlay.dart';
-import '../widgets/search_overlay.dart';
 import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -40,7 +37,6 @@ class _HomePageState extends State<HomePage> {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
     HotkeyService().groupHotkeyTrigger.addListener(_onGroupHotkeyTriggered);
-    HotkeyService().searchHotkeyTrigger.addListener(_onSearchHotkeyTriggered);
   }
 
   @override
@@ -50,7 +46,6 @@ class _HomePageState extends State<HomePage> {
     _groupService.groups.removeListener(_onChanged);
     _searchController.dispose();
     HotkeyService().groupHotkeyTrigger.removeListener(_onGroupHotkeyTriggered);
-    HotkeyService().searchHotkeyTrigger.removeListener(_onSearchHotkeyTriggered);
     super.dispose();
   }
 
@@ -68,21 +63,6 @@ class _HomePageState extends State<HomePage> {
     if (group == null) return;
     if (!mounted) return;
     GroupHotkeyOverlay.show(context, group);
-  }
-
-  void _onSearchHotkeyTriggered() {
-    final triggered = HotkeyService().searchHotkeyTrigger.value;
-    if (!triggered) return;
-    // 清空触发器，防止重复触发
-    HotkeyService().searchHotkeyTrigger.value = false;
-    if (!mounted) return;
-    // 先显示窗口，再弹出搜索覆盖层
-    final hwnd = appWindow.handle;
-    if (hwnd != null) {
-      ShowWindow(hwnd, SW_RESTORE);
-      SetForegroundWindow(hwnd);
-    }
-    SearchOverlay.show(context);
   }
 
   void _openGroupManage() {
