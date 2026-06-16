@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../models/launch_item.dart';
 import 'system_commands.dart';
 import 'launch_log_service.dart';
+import 'item_service.dart';
+import 'settings_service.dart';
 
 /// 启动结果
 typedef LaunchResult = ({bool success, String? errorMessage});
@@ -65,6 +67,16 @@ class LaunchService {
         success: true,
         message: '启动成功',
       ));
+
+      // 记录启动统计
+      item.launchCount++;
+      item.lastLaunchAt = DateTime.now();
+      final sortMode = SettingsService().sortMode.value;
+      if (sortMode == SortMode.mostUsed || sortMode == SortMode.recentlyUsed) {
+        ItemService().applySort();
+      } else {
+        ItemService().notifyItemsChanged();
+      }
 
       return (success: true, errorMessage: null);
     } catch (e) {

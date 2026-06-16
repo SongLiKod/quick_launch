@@ -75,12 +75,36 @@ class ItemService {
     if (mode == SortMode.manual) return;
 
     final list = List<LaunchItem>.from(items.value);
-    if (mode == SortMode.name) {
-      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    } else if (mode == SortMode.created) {
-      list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    } else if (mode == SortMode.type) {
-      list.sort((a, b) => a.type.name.compareTo(b.type.name));
+    switch (mode) {
+      case SortMode.name:
+        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case SortMode.created:
+        list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case SortMode.type:
+        list.sort((a, b) => a.type.name.compareTo(b.type.name));
+        break;
+      case SortMode.mostUsed:
+        list.sort((a, b) {
+          if (a.launchCount != b.launchCount) {
+            return b.launchCount.compareTo(a.launchCount);
+          }
+          // 启动次数相同时，最近使用的排前面
+          final aTime = a.lastLaunchAt ?? a.createdAt;
+          final bTime = b.lastLaunchAt ?? b.createdAt;
+          return bTime.compareTo(aTime);
+        });
+        break;
+      case SortMode.recentlyUsed:
+        list.sort((a, b) {
+          final aTime = a.lastLaunchAt ?? a.createdAt;
+          final bTime = b.lastLaunchAt ?? b.createdAt;
+          return bTime.compareTo(aTime);
+        });
+        break;
+      case SortMode.manual:
+        break;
     }
     items.value = list;
   }
