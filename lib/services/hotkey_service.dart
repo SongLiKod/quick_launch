@@ -12,6 +12,7 @@ class HotkeyService {
 
   static const int baseHotkeyId = 100;
   static const int showWindowHotkeyId = 1;
+  static const int searchHotkeyId = 2;
   static const int baseGroupHotkeyId = 5000;
 
   final Map<int, LaunchItem> _hotkeyMap = {};
@@ -22,11 +23,17 @@ class HotkeyService {
   // 显示窗口快捷键的回调
   VoidCallback? onShowWindow;
 
+  // 搜索快捷键的回调
+  VoidCallback? onSearchHotkey;
+
   // 分组快捷键回调，参数为 groupId
   void Function(String groupId)? onGroupHotkey;
 
   // 分组快捷键触发通知（HomePage 监听此 notifier 弹出选择覆盖层）
   final ValueNotifier<String?> groupHotkeyTrigger = ValueNotifier(null);
+
+  // 搜索快捷键触发通知（HomePage 监听此 notifier 弹出搜索覆盖层）
+  final ValueNotifier<bool> searchHotkeyTrigger = ValueNotifier(false);
 
   void setWindowHandle(int hWnd) {
     _hWnd = hWnd;
@@ -81,10 +88,33 @@ class HotkeyService {
     UnregisterHotKey(_ensureHWnd, showWindowHotkeyId);
   }
 
+  /// 注册"搜索"全局快捷键
+  void registerSearchHotkey(int modifiers, int virtualKey) {
+    final result = RegisterHotKey(
+      _ensureHWnd,
+      searchHotkeyId,
+      modifiers,
+      virtualKey,
+    );
+    if (result == 0) {
+      debugPrint('RegisterSearchHotKey failed, error: ${GetLastError()}');
+    }
+  }
+
+  /// 注销"搜索"全局快捷键
+  void unregisterSearchHotkey() {
+    UnregisterHotKey(_ensureHWnd, searchHotkeyId);
+  }
+
   /// 热键分发入口
   void onHotkeyPressed(int hotkeyId) {
     if (hotkeyId == showWindowHotkeyId) {
       onShowWindow?.call();
+      return;
+    }
+    if (hotkeyId == searchHotkeyId) {
+      onSearchHotkey?.call();
+      searchHotkeyTrigger.value = true;
       return;
     }
     final item = _hotkeyMap[hotkeyId];
@@ -164,6 +194,7 @@ class HotkeyService {
   void dispose() {
     if (_hWnd == null) return;
     UnregisterHotKey(_hWnd!, showWindowHotkeyId);
+    UnregisterHotKey(_hWnd!, searchHotkeyId);
     for (final id in _hotkeyMap.keys) {
       UnregisterHotKey(_hWnd!, id);
     }

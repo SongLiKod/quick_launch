@@ -109,6 +109,15 @@ Future<void> _startupAfterRunApp() async {
     }
   };
 
+  // 8c. Setup callback: when search hotkey fires, bring window to front
+  HotkeyService().onSearchHotkey = () {
+    final hwnd = appWindow.handle;
+    if (hwnd != null) {
+      ShowWindow(hwnd, SW_RESTORE);
+      SetForegroundWindow(hwnd);
+    }
+  };
+
   // 9. Register show-window hotkey if configured
   final showMods = SettingsService().showWindowModifiers.value;
   final showKey = SettingsService().showWindowKey.value;
@@ -119,6 +128,13 @@ Future<void> _startupAfterRunApp() async {
   // 9b. Register all group hotkeys
   GroupService().loadAllGroupHotkeys();
 
+  // 9c. Register search hotkey if configured
+  final searchMods = SettingsService().searchHotkeyModifiers.value;
+  final searchKey = SettingsService().searchHotkeyKey.value;
+  if (searchMods != null && searchKey != null) {
+    HotkeyService().registerSearchHotkey(searchMods, searchKey);
+  }
+
   // 10. Listen for show-window hotkey changes from settings
   SettingsService().showWindowModifiers.addListener(() {
     HotkeyService().unregisterShowWindowHotkey();
@@ -126,6 +142,16 @@ Future<void> _startupAfterRunApp() async {
     final k = SettingsService().showWindowKey.value;
     if (m != null && k != null) {
       HotkeyService().registerShowWindowHotkey(m, k);
+    }
+  });
+
+  // 10b. Listen for search hotkey changes from settings
+  SettingsService().searchHotkeyModifiers.addListener(() {
+    HotkeyService().unregisterSearchHotkey();
+    final m = SettingsService().searchHotkeyModifiers.value;
+    final k = SettingsService().searchHotkeyKey.value;
+    if (m != null && k != null) {
+      HotkeyService().registerSearchHotkey(m, k);
     }
   });
 
