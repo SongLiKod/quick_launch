@@ -42,8 +42,8 @@ class SearchOverlay extends StatefulWidget {
     _savedStyle = GetWindowLongPtr(hwnd, GWL_STYLE);
     _savedWidth = appWindow.size.width;
     _savedHeight = appWindow.size.height;
-    _savedLeft = appWindow.position.x;
-    _savedTop = appWindow.position.y;
+    _savedLeft = appWindow.position.dx;
+    _savedTop = appWindow.position.dy;
 
     // 移除标题栏/边框样式（WS_CAPTION | WS_THICKFRAME | WS_SYSMENU）
     const removedStyle = WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
