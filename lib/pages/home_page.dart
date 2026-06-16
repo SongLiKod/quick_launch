@@ -147,6 +147,12 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  String? _getGroupName(String? groupId) {
+    if (groupId == null) return null;
+    final group = _groupService.groups.value.where((g) => g.id == groupId).firstOrNull;
+    return group?.name;
+  }
+
   Widget _buildGridLayout(List<LaunchItem> items, int cols) {
     // 将 items 按列数分组为行
     final rows = <List<LaunchItem>>[];
@@ -174,6 +180,9 @@ class _HomePageState extends State<HomePage> {
                       key: ValueKey(row[i].id),
                       item: row[i],
                       isGridMode: true,
+                      groupName: _selectedGroupId == null
+                          ? _getGroupName(row[i].groupId)
+                          : null,
                     ),
                   ),
                 ),
@@ -296,6 +305,9 @@ class _HomePageState extends State<HomePage> {
                       key: ValueKey(filtered[i].id),
                       item: filtered[i],
                       index: i,
+                      groupName: _selectedGroupId == null
+                          ? _getGroupName(filtered[i].groupId)
+                          : null,
                     ),
                     onReorderItem: (oldIndex, newIndex) {
                       _itemService.reorderItem(oldIndex, newIndex);
@@ -309,6 +321,9 @@ class _HomePageState extends State<HomePage> {
                   itemBuilder: (_, i) => ItemTile(
                     key: ValueKey(filtered[i].id),
                     item: filtered[i],
+                    groupName: _selectedGroupId == null
+                        ? _getGroupName(filtered[i].groupId)
+                        : null,
                   ),
                 );
               },
