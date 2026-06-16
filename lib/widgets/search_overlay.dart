@@ -91,7 +91,6 @@ class SearchOverlay extends StatefulWidget {
 class _SearchOverlayState extends State<SearchOverlay> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  final FocusNode _overlayFocusNode = FocusNode();
 
   List<LaunchItem> _allItems = [];
   List<LaunchItem> _filteredItems = [];
@@ -111,7 +110,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
-    _overlayFocusNode.dispose();
     super.dispose();
   }
 
@@ -158,63 +156,57 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Focus(
-        focusNode: _overlayFocusNode,
-        autofocus: true,
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent || event is KeyRepeatEvent) {
-            if (event.logicalKey == LogicalKeyboardKey.escape) {
-              _close();
-              return KeyEventResult.handled;
+      body: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): _close,
+          const SingleActivator(LogicalKeyboardKey.arrowDown): () {
+            if (items.isEmpty) return;
+            setState(() {
+              _selectedIndex = (_selectedIndex + 1) % items.length;
+            });
+          },
+          const SingleActivator(LogicalKeyboardKey.arrowUp): () {
+            if (items.isEmpty) return;
+            setState(() {
+              _selectedIndex =
+                  (_selectedIndex - 1 + items.length) % items.length;
+            });
+          },
+          const SingleActivator(LogicalKeyboardKey.enter): () {
+            if (items.isNotEmpty &&
+                _selectedIndex >= 0 &&
+                _selectedIndex < items.length) {
+              _launchItem(items[_selectedIndex]);
             }
-            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-              if (items.isEmpty) return KeyEventResult.handled;
-              setState(() {
-                _selectedIndex = (_selectedIndex + 1) % items.length;
-              });
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-              if (items.isEmpty) return KeyEventResult.handled;
-              setState(() {
-                _selectedIndex = (_selectedIndex - 1 + items.length) % items.length;
-              });
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.enter) {
-              if (items.isNotEmpty &&
-                  _selectedIndex >= 0 &&
-                  _selectedIndex < items.length) {
-                _launchItem(items[_selectedIndex]);
-                return KeyEventResult.handled;
-              }
-            }
-          }
-          return KeyEventResult.ignored;
+          },
         },
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            constraints: const BoxConstraints.expand(),
-            decoration: BoxDecoration(
-              color: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 40,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                _buildSearchBar(theme, items),
-                if (items.isEmpty)
-                  _buildEmptyState()
-                else
-                  Flexible(child: _buildResultList(theme, items)),
-                _buildBottomBar(theme),
-              ],
+        child: Focus(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              constraints: const BoxConstraints.expand(),
+              decoration: BoxDecoration(
+                color: theme.dialogTheme.backgroundColor ??
+                    theme.colorScheme.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 40,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _buildSearchBar(theme, items),
+                  if (items.isEmpty)
+                    _buildEmptyState()
+                  else
+                    Flexible(child: _buildResultList(theme, items)),
+                  _buildBottomBar(theme),
+                ],
+              ),
             ),
           ),
         ),
