@@ -327,7 +327,7 @@ class _GroupHotkeyOverlayState extends State<GroupHotkeyOverlay> {
                       children: [
                         Expanded(
                           child: Text(
-                            '按 A-${_letterFor(_items.length - 1)} 启动  ·  空格选中  ·  方向键切换  ·  Esc 关闭',
+                            '按 A-${_letterFor(_items.length - 1)} 启动或Enter启动选中项  ·  空格选中  ·  方向键切换  ·  Esc 关闭',
                             style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                           ),
                         ),
