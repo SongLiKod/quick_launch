@@ -192,12 +192,14 @@ class _SearchOverlayState extends State<SearchOverlay> {
               return KeyEventResult.handled;
             }
             if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              if (items.isEmpty) return KeyEventResult.handled;
               setState(() {
                 _selectedIndex = (_selectedIndex + 1) % items.length;
               });
               return KeyEventResult.handled;
             }
             if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              if (items.isEmpty) return KeyEventResult.handled;
               setState(() {
                 _selectedIndex =
                     (_selectedIndex - 1 + items.length) % items.length;
@@ -231,7 +233,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   ],
                 ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                           // ---- 搜索输入框 ----
                           Container(
@@ -402,8 +403,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     ),  // Container
                   ),  // Material
                 ),  // Focus
-              ),  // Scaffold
-            );  // build
+              );  // Scaffold + return
 
   Widget _bottomHint(String key, String desc) {
     return Row(
