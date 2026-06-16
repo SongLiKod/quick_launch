@@ -56,7 +56,6 @@ class _GroupHotkeyOverlayState extends State<GroupHotkeyOverlay> {
   }
 
   void _launchItem(LaunchItem item) {
-    Navigator.of(context).pop();
     LaunchService().launch(item);
   }
 
