@@ -9,15 +9,12 @@ import '../services/launch_service.dart';
 import '../app.dart';
 
 /// 全局快速搜索页面 — 按下全局搜索热键后弹出
-///
 /// 以无边框小窗口形式呈现，类似 Spotlight / PowerToys Run 风格。
 class SearchOverlay extends StatefulWidget {
   const SearchOverlay({super.key});
 
-  /// 准备窗口并推入搜索路由
   static void open() {
     _enterSearchMode();
-    // 推入搜索路由
     final nav = navigatorKey.currentState;
     nav?.push(
       MaterialPageRoute(
@@ -27,7 +24,6 @@ class SearchOverlay extends StatefulWidget {
     );
   }
 
-  // ---- 窗口状态保存/恢复 ----
   static int _savedStyle = 0;
   static double _savedWidth = 0;
   static double _savedHeight = 0;
@@ -38,37 +34,27 @@ class SearchOverlay extends StatefulWidget {
     final hwnd = appWindow.handle;
     if (hwnd == null) return;
 
-    // 保存当前窗口样式和尺寸/位置
     _savedStyle = GetWindowLongPtr(hwnd, GWL_STYLE);
     _savedWidth = appWindow.size.width;
     _savedHeight = appWindow.size.height;
     _savedLeft = appWindow.position.dx;
     _savedTop = appWindow.position.dy;
 
-    // 移除标题栏/边框样式（WS_CAPTION | WS_THICKFRAME | WS_SYSMENU）
     const removedStyle = WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
     final newStyle = _savedStyle & ~removedStyle;
     SetWindowLongPtr(hwnd, GWL_STYLE, newStyle);
 
-    // 应用样式变更
     SetWindowPos(
-      hwnd,
-      HWND_NOTOPMOST,
-      0,
-      0,
-      620,
-      500,
+      hwnd, HWND_NOTOPMOST, 0, 0, 620, 500,
       SWP_NOMOVE | SWP_FRAMECHANGED,
     );
 
-    // 居中
     final screenW = GetSystemMetrics(SM_CXSCREEN);
     final screenH = GetSystemMetrics(SM_CYSCREEN);
     final x = (screenW - 620) ~/ 2;
     final y = (screenH - 500) ~/ 2;
     SetWindowPos(hwnd, HWND_NOTOPMOST, x, y, 620, 500, SWP_NOZORDER);
 
-    // 显示并置前
     ShowWindow(hwnd, SW_RESTORE);
     SetForegroundWindow(hwnd);
   }
@@ -77,33 +63,22 @@ class SearchOverlay extends StatefulWidget {
     final hwnd = appWindow.handle;
     if (hwnd == null) return;
 
-    // 恢复窗口样式
     SetWindowLongPtr(hwnd, GWL_STYLE, _savedStyle);
 
-    // 恢复尺寸和位置
     if (_savedWidth > 0 && _savedHeight > 0) {
       SetWindowPos(
-        hwnd,
-        HWND_NOTOPMOST,
-        _savedLeft.toInt(),
-        _savedTop.toInt(),
-        _savedWidth.toInt(),
-        _savedHeight.toInt(),
+        hwnd, HWND_NOTOPMOST,
+        _savedLeft.toInt(), _savedTop.toInt(),
+        _savedWidth.toInt(), _savedHeight.toInt(),
         SWP_FRAMECHANGED,
       );
     } else {
       SetWindowPos(
-        hwnd,
-        HWND_NOTOPMOST,
-        0,
-        0,
-        0,
-        0,
+        hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
         SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED,
       );
     }
 
-    // 隐藏窗口
     ShowWindow(hwnd, SW_HIDE);
   }
 
@@ -157,7 +132,6 @@ class _SearchOverlayState extends State<SearchOverlay> {
   }
 
   void _launchItem(LaunchItem item) {
-    // 先退出搜索模式（恢复窗口并隐藏），再启动
     SearchOverlay._exitSearchMode();
     Navigator.of(context).pop();
     LaunchService().launch(item);
@@ -201,8 +175,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
             if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
               if (items.isEmpty) return KeyEventResult.handled;
               setState(() {
-                _selectedIndex =
-                    (_selectedIndex - 1 + items.length) % items.length;
+                _selectedIndex = (_selectedIndex - 1 + items.length) % items.length;
               });
               return KeyEventResult.handled;
             }
@@ -220,190 +193,170 @@ class _SearchOverlayState extends State<SearchOverlay> {
         child: Material(
           color: Colors.transparent,
           child: Container(
-                constraints: const BoxConstraints.expand(),
-                decoration: BoxDecoration(
-                  color: theme.dialogTheme.backgroundColor ??
-                      theme.colorScheme.surface,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 40,
-                      offset: const Offset(0, 12),
-                    ),
-                  ],
+            constraints: const BoxConstraints.expand(),
+            decoration: BoxDecoration(
+              color: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 40,
+                  offset: const Offset(0, 12),
                 ),
-                child: Column(
-                  children: [
-                          // ---- 搜索输入框 ----
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: theme.dividerColor
-                                      .withValues(alpha: 0.3),
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.search,
-                                    color: theme.colorScheme.primary,
-                                    size: 22),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: TextField(
-                                    controller: _searchController,
-                                    focusNode: _searchFocusNode,
-                                    autofocus: true,
-                                    decoration: const InputDecoration(
-                                      hintText: '搜索启动项...',
-                                      border: InputBorder.none,
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                    ),
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                ),
-                                if (_searchController.text.isNotEmpty)
-                                  IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      _searchFocusNode.requestFocus();
-                                    },
-                                    visualDensity: VisualDensity.compact,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                        minWidth: 28, minHeight: 28),
-                                  ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '${items.length}项',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.grey[500]),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // ---- 结果列表 ----
-                          if (items.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.all(40),
-                              child: Column(
-                                children: [
-                                  Icon(Icons.inbox,
-                                      size: 48, color: Colors.grey),
-                                  SizedBox(height: 12),
-                                  Text('没有启动项',
-                                      style: TextStyle(color: Colors.grey)),
-                                ],
-                              ),
-                            )
-                          else
-                            Flexible(
-                              child: ListView.builder(
-                                padding: EdgeInsets.zero,
-                                shrinkWrap: true,
-                                itemCount: items.length,
-                                itemBuilder: (_, i) {
-                                  final item = items[i];
-                                  final selected = i == _selectedIndex;
-                                  final groupName = _getGroupName(item.groupId);
-                                  return InkWell(
-                                    onTap: () => _launchItem(item),
-                                    onHover: (_) {
-                                      if (_selectedIndex != i) {
-                                        setState(() => _selectedIndex = i);
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        color: selected
-                                            ? theme.colorScheme
-                                                .primaryContainer
-                                                .withValues(alpha: 0.4)
-                                            : null,
-                                        border: Border(
-                                          bottom: BorderSide(
-                                            color: theme.dividerColor
-                                                .withValues(alpha: 0.15),
-                                          ),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          _buildItemIcon(item),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  item.name,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w500,
-                                                    fontSize: 14,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  item.targetPath,
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: Colors.grey[500],
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          _buildTypeLabel(item),
-                                          if (groupName != null) ...[
-                                            const SizedBox(width: 4),
-                                            _buildGroupBadge(groupName),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          // ---- 底部提示 ----
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.3),
-                            ),
-                            child: Row(
-                              children: [
-                                _bottomHint('↑↓', '选择'),
-                                const SizedBox(width: 12),
-                                _bottomHint('⏎', '启动'),
-                                const SizedBox(width: 12),
-                                _bottomHint('Esc', '关闭'),
-                              ],
-                            ),
-                          ),
-                        ],  // end of Column children
-                      ),  // Column
-                    ),  // Container
-                  ),  // Material
-                ),  // Focus
-              );  // Scaffold + return
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildSearchBar(theme, items),
+                if (items.isEmpty)
+                  _buildEmptyState()
+                else
+                  Flexible(child: _buildResultList(theme, items)),
+                _buildBottomBar(theme),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(ThemeData theme, List<LaunchItem> items) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.search, color: theme.colorScheme.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: '搜索启动项...',
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear, size: 18),
+              onPressed: () {
+                _searchController.clear();
+                _searchFocusNode.requestFocus();
+              },
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            ),
+          const SizedBox(width: 8),
+          Text('${items.length}项', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return const Padding(
+      padding: EdgeInsets.all(40),
+      child: Column(
+        children: [
+          Icon(Icons.inbox, size: 48, color: Colors.grey),
+          SizedBox(height: 12),
+          Text('没有启动项', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultList(ThemeData theme, List<LaunchItem> items) {
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      itemCount: items.length,
+      itemBuilder: (_, i) {
+        final item = items[i];
+        final selected = i == _selectedIndex;
+        final groupName = _getGroupName(item.groupId);
+        return InkWell(
+          onTap: () => _launchItem(item),
+          onHover: (_) {
+            if (_selectedIndex != i) {
+              setState(() => _selectedIndex = i);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: selected
+                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.4)
+                  : null,
+              border: Border(
+                bottom: BorderSide(color: theme.dividerColor.withValues(alpha: 0.15)),
+              ),
+            ),
+            child: Row(
+              children: [
+                _buildItemIcon(item),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.targetPath,
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildTypeLabel(item),
+                if (groupName != null) ...[
+                  const SizedBox(width: 4),
+                  _buildGroupBadge(groupName),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomBar(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      ),
+      child: Row(
+        children: [
+          _bottomHint('↑↓', '选择'),
+          const SizedBox(width: 12),
+          _bottomHint('⏎', '启动'),
+          const SizedBox(width: 12),
+          _bottomHint('Esc', '关闭'),
+        ],
+      ),
+    );
+  }
 
   Widget _bottomHint(String key, String desc) {
     return Row(
@@ -417,17 +370,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
           ),
           child: Text(
             key,
-            style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Colors.white70),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white70),
           ),
         ),
         const SizedBox(width: 4),
-        Text(
-          desc,
-          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-        ),
+        Text(desc, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
       ],
     );
   }
@@ -462,10 +409,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 10, color: color),
-      ),
+      child: Text(label, style: TextStyle(fontSize: 10, color: color)),
     );
   }
 
@@ -477,10 +421,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
       ),
-      child: Text(
-        groupName,
-        style: const TextStyle(fontSize: 10, color: Colors.grey),
-      ),
+      child: Text(groupName, style: const TextStyle(fontSize: 10, color: Colors.grey)),
     );
   }
 }
