@@ -29,6 +29,7 @@ class GroupHotkeyOverlay extends StatefulWidget {
 
 class _GroupHotkeyOverlayState extends State<GroupHotkeyOverlay> {
   int _selectedIndex = 0;
+  final Set<int> _checkedIndexes = {};
   late final List<LaunchItem> _items;
   late final FocusNode _focusNode;
 
@@ -59,6 +60,26 @@ class _GroupHotkeyOverlayState extends State<GroupHotkeyOverlay> {
     LaunchService().launch(item);
   }
 
+  void _launchCheckedItems() {
+    for (final i in _checkedIndexes) {
+      if (i >= 0 && i < _items.length) {
+        LaunchService().launch(_items[i]);
+      }
+    }
+  }
+
+  void _toggleCheck(int index) {
+    setState(() {
+      if (_checkedIndexes.contains(index)) {
+        _checkedIndexes.remove(index);
+      } else {
+        _checkedIndexes.add(index);
+      }
+    });
+  }
+
+  bool get _hasChecked => _checkedIndexes.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -74,11 +95,31 @@ class _GroupHotkeyOverlayState extends State<GroupHotkeyOverlay> {
             Navigator.of(context).pop();
             return KeyEventResult.handled;
           }
-          // Enter to launch selected
+          // Enter to launch selected item (single)
           if (key == LogicalKeyboardKey.enter &&
               _selectedIndex >= 0 &&
               _selectedIndex < _items.length) {
             _launchItem(_items[_selectedIndex]);
+            return KeyEventResult.handled;
+          }
+          // Space to toggle checkbox
+          if (key == LogicalKeyboardKey.space &&
+              _selectedIndex >= 0 &&
+              _selectedIndex < _items.length) {
+            _toggleCheck(_selectedIndex);
+            return KeyEventResult.handled;
+          }
+          // Ctrl+A to select all
+          if (key == LogicalKeyboardKey.keyA &&
+              (event is KeyDownEvent) &&
+              HardwareKeyboard.instance.isControlPressed) {
+            setState(() {
+              if (_checkedIndexes.length == _items.length) {
+                _checkedIndexes.clear();
+              } else {
+                _checkedIndexes.addAll(List.generate(_items.length, (i) => i));
+              }
+            });
             return KeyEventResult.handled;
           }
           // Arrow keys to navigate
@@ -181,11 +222,12 @@ class _GroupHotkeyOverlayState extends State<GroupHotkeyOverlay> {
                     ...List.generate(_items.length, (i) {
                       final item = _items[i];
                       final selected = i == _selectedIndex;
+                      final checked = _checkedIndexes.contains(i);
                       return InkWell(
                         onTap: () => _launchItem(item),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
+                              horizontal: 8, vertical: 10),
                           decoration: BoxDecoration(
                             color: selected
                                 ? theme.colorScheme.primaryContainer
@@ -200,30 +242,50 @@ class _GroupHotkeyOverlayState extends State<GroupHotkeyOverlay> {
                           ),
                           child: Row(
                             children: [
+                              // 多选框
+                              GestureDetector(
+                                onTap: () => _toggleCheck(i),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    checked
+                                        ? Icons.check_circle
+                                        : Icons.radio_button_unchecked,
+                                    size: 22,
+                                    color: checked
+                                        ? Color(widget.group.colorValue)
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ),
                               // 字母快捷键标识
                               Container(
-                                width: 32,
-                                height: 32,
+                                width: 28,
+                                height: 28,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: selected
-                                      ? theme.colorScheme.primary
-                                      : Color(widget.group.colorValue),
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: checked
+                                      ? Color(widget.group.colorValue)
+                                      : selected
+                                          ? theme.colorScheme.primary
+                                          : Colors.grey[400],
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   _letterFor(i),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                                    fontSize: 12,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 10),
                               // 图标
                               _buildIcon(item),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 8),
                               // 名称和路径
                               Expanded(
                                 child: Column(
@@ -254,18 +316,32 @@ class _GroupHotkeyOverlayState extends State<GroupHotkeyOverlay> {
                     }),
                   // 底部提示
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       borderRadius:
                           const BorderRadius.vertical(bottom: Radius.circular(16)),
                       color: theme.colorScheme.surfaceContainerHighest
                           .withValues(alpha: 0.3),
                     ),
-                    child: Text(
-                      '按 A-${_letterFor(_items.length - 1)} 字母键快速启动  ·  方向键切换选中  ·  Enter 启动  ·  Esc 关闭',
-                      style: TextStyle(
-                          fontSize: 11, color: Colors.grey[600]),
-                      textAlign: TextAlign.center,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '按 A-${_letterFor(_items.length - 1)} 启动  ·  空格选中  ·  方向键切换  ·  Esc 关闭',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                          ),
+                        ),
+                        if (_hasChecked)
+                          FilledButton.tonalIcon(
+                            onPressed: _launchCheckedItems,
+                            icon: const Icon(Icons.play_arrow, size: 16),
+                            label: Text('启动所选 (${_checkedIndexes.length})',
+                                style: const TextStyle(fontSize: 12)),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
