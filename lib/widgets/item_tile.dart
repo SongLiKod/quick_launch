@@ -9,12 +9,14 @@ class ItemTile extends StatelessWidget {
   final LaunchItem item;
   final int? index;
   final bool isGridMode;
+  final String? groupName;
 
   const ItemTile({
     super.key,
     required this.item,
     this.index,
     this.isGridMode = false,
+    this.groupName,
   });
 
   void _onLaunch(BuildContext context) async {
@@ -111,6 +113,10 @@ class ItemTile extends StatelessWidget {
                         const SizedBox(width: 4),
                         _buildStaleBadge(),
                       ],
+                      if (groupName != null) ...[
+                        const SizedBox(width: 4),
+                        _buildGroupBadge(),
+                      ],
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -193,6 +199,10 @@ class ItemTile extends StatelessWidget {
                         if (_isStale()) ...[
                           const SizedBox(width: 4),
                           _buildStaleBadge(),
+                        ],
+                        if (groupName != null) ...[
+                          const SizedBox(width: 4),
+                          _buildGroupBadge(),
                         ],
                         if (item.hotkeyVirtualKey != null) ...[
                           const SizedBox(width: 4),
@@ -304,6 +314,21 @@ class ItemTile extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(fontSize: 10, color: color, height: 1.3),
+      ),
+    );
+  }
+
+  Widget _buildGroupBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.grey.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        groupName!,
+        style: const TextStyle(fontSize: 10, color: Colors.grey, height: 1.3),
       ),
     );
   }
