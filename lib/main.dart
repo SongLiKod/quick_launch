@@ -10,6 +10,7 @@ import 'services/hotkey_service.dart';
 import 'services/settings_service.dart';
 import 'services/launch_log_service.dart';
 import 'services/update_service.dart';
+import 'services/group_service.dart';
 import 'utils/tray_icon.dart';
 
 late final SystemTray systemTray;
@@ -36,6 +37,12 @@ void main() async {
   } catch (e) {
     // ignore: avoid_print
     print('加载日志失败: $e');
+  }
+  try {
+    await GroupService().load();
+  } catch (e) {
+    // ignore: avoid_print
+    print('加载分组失败: $e');
   }
 
   // 2. Run the app
@@ -93,12 +100,24 @@ Future<void> _startupAfterRunApp() async {
     }
   };
 
+  // 8b. Setup callback: when group hotkey fires, bring window to front
+  HotkeyService().onGroupHotkey = (groupId) {
+    final hwnd = appWindow.handle;
+    if (hwnd != null) {
+      ShowWindow(hwnd, SW_RESTORE);
+      SetForegroundWindow(hwnd);
+    }
+  };
+
   // 9. Register show-window hotkey if configured
   final showMods = SettingsService().showWindowModifiers.value;
   final showKey = SettingsService().showWindowKey.value;
   if (showMods != null && showKey != null) {
     HotkeyService().registerShowWindowHotkey(showMods, showKey);
   }
+
+  // 9b. Register all group hotkeys
+  GroupService().loadAllGroupHotkeys();
 
   // 10. Listen for show-window hotkey changes from settings
   SettingsService().showWindowModifiers.addListener(() {

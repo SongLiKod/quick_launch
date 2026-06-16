@@ -10,6 +10,7 @@ import '../services/group_service.dart';
 import '../widgets/item_tile.dart';
 import '../widgets/add_item_dialog.dart';
 import '../widgets/group_manage_dialog.dart';
+import '../widgets/group_hotkey_overlay.dart';
 import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -35,6 +36,7 @@ class _HomePageState extends State<HomePage> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
+    HotkeyService().groupHotkeyTrigger.addListener(_onGroupHotkeyTriggered);
   }
 
   @override
@@ -43,11 +45,24 @@ class _HomePageState extends State<HomePage> {
     SettingsService().columnCount.removeListener(_onChanged);
     _groupService.groups.removeListener(_onChanged);
     _searchController.dispose();
+    HotkeyService().groupHotkeyTrigger.removeListener(_onGroupHotkeyTriggered);
     super.dispose();
   }
 
   void _onChanged() {
     setState(() {});
+  }
+
+  void _onGroupHotkeyTriggered() {
+    final groupId = HotkeyService().groupHotkeyTrigger.value;
+    if (groupId == null) return;
+    // 清空触发器，防止重复触发
+    HotkeyService().groupHotkeyTrigger.value = null;
+    final groups = _groupService.groups.value;
+    final group = groups.where((g) => g.id == groupId).firstOrNull;
+    if (group == null) return;
+    if (!mounted) return;
+    GroupHotkeyOverlay.show(context, group);
   }
 
   void _openGroupManage() {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../models/item_group.dart';
 import '../services/group_service.dart';
+import '../services/hotkey_service.dart';
+import '../pages/settings_page.dart';
 
 class GroupManageDialog extends StatefulWidget {
   const GroupManageDialog({super.key});
@@ -53,9 +55,25 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
                     ),
                   ),
                   title: Text(group.name),
+                  subtitle: group.hasGroupHotkey
+                      ? Text(
+                          formatHotkeyLabel(
+                              group.groupHotkeyModifiers, group.groupHotkeyVirtualKey),
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        )
+                      : null,
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      IconButton(
+                        icon: Icon(
+                          group.hasGroupHotkey ? Icons.keyboard : Icons.keyboard_outlined,
+                          size: 18,
+                          color: group.hasGroupHotkey ? Colors.blue : null,
+                        ),
+                        tooltip: group.hasGroupHotkey ? '修改分组快捷键' : '设置分组快捷键',
+                        onPressed: () => _editGroupHotkey(context, group),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         tooltip: '重命名',
@@ -115,6 +133,104 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
         group.name = name.trim();
         await _service.updateGroup(group);
       },
+    );
+  }
+
+  void _editGroupHotkey(BuildContext context, ItemGroup group) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('分组快捷键 - ${group.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('设置全局快捷键，按 Alt+字母/数字 组合触发此分组的选择面板'),
+            const SizedBox(height: 8),
+            Text(
+              '格式: Ctrl+Alt+A\n例如: Ctrl+Shift+1, Ctrl+Alt+S, Win+G',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: '快捷键',
+                hintText: group.hasGroupHotkey
+                    ? formatHotkeyLabel(
+                        group.groupHotkeyModifiers, group.groupHotkeyVirtualKey)
+                    : 'Ctrl+Shift+1',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          if (group.hasGroupHotkey)
+            TextButton(
+              onPressed: () async {
+                HotkeyService().unregisterGroupHotkey(group.id);
+                group.groupHotkeyModifiers = null;
+                group.groupHotkeyVirtualKey = null;
+                await _service.updateGroup(group);
+                Navigator.of(ctx).pop();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('已清除分组快捷键')),
+                );
+              },
+              child: const Text('清除', style: TextStyle(color: Colors.red)),
+            ),
+          FilledButton(
+            onPressed: () async {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+              final result = parseHotkeyText(text);
+              if (result == null) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('无效格式，请使用 Ctrl+Alt+A 格式')),
+                );
+                return;
+              }
+              final (modifiers, vk) = result;
+
+              // 检测冲突
+              final conflict = HotkeyService().findGroupConflict(
+                modifiers, vk,
+                excludeGroupId: group.id,
+              );
+              if (conflict != null) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  SnackBar(content: Text('快捷键冲突: "$conflict" 已占用')),
+                );
+                return;
+              }
+
+              // 先注销旧的
+              if (group.hasGroupHotkey) {
+                HotkeyService().unregisterGroupHotkey(group.id);
+              }
+              // 设置新热键
+              group.groupHotkeyModifiers = modifiers;
+              group.groupHotkeyVirtualKey = vk;
+              await _service.updateGroup(group);
+              Navigator.of(ctx).pop();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('分组快捷键已设为 ${formatHotkeyLabel(modifiers, vk)}'),
+                ),
+              );
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
     );
   }
 
