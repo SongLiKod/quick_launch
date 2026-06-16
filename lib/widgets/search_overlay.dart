@@ -215,38 +215,24 @@ class _SearchOverlayState extends State<SearchOverlay> {
           }
           return KeyEventResult.ignored;
         },
-        child: Container(
-          color: Colors.black,
-          child: SafeArea(
-            child: Column(
-              children: [
-                const Spacer(flex: 3),
-                // ---- 搜索面板 ----
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 48),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Container(
-                      constraints: const BoxConstraints(
-                        maxWidth: 560,
-                        maxHeight: 420,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.dialogTheme.backgroundColor ??
-                            theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            blurRadius: 40,
-                            offset: const Offset(0, 12),
-                          ),
-                        ],
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+                constraints: const BoxConstraints.expand(),
+                decoration: BoxDecoration(
+                  color: theme.dialogTheme.backgroundColor ??
+                      theme.colorScheme.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 40,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                           // ---- 搜索输入框 ----
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -411,19 +397,13 @@ class _SearchOverlayState extends State<SearchOverlay> {
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const Spacer(flex: 4),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+                        ],  // end of Column children
+                      ),  // Column
+                    ),  // Container
+                  ),  // Material
+                ),  // Focus
+              ),  // Scaffold
+            );  // build
 
   Widget _bottomHint(String key, String desc) {
     return Row(
