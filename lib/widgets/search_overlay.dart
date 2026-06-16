@@ -63,6 +63,10 @@ class SearchOverlay extends StatefulWidget {
     final hwnd = appWindow.handle;
     if (hwnd == null) return;
 
+    // 先隐藏窗口 — 防止后续样式恢复时主界面闪现
+    ShowWindow(hwnd, SW_HIDE);
+
+    // 隐藏后再恢复窗口样式和几何尺寸（用户看不到）
     SetWindowLongPtr(hwnd, GWL_STYLE, _savedStyle);
 
     if (_savedWidth > 0 && _savedHeight > 0) {
@@ -78,8 +82,6 @@ class SearchOverlay extends StatefulWidget {
         SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED,
       );
     }
-
-    ShowWindow(hwnd, SW_HIDE);
   }
 
   @override
