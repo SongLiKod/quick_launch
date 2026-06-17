@@ -156,6 +156,36 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
     );
   }
 
+  Future<void> _onKillProcess(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('结束进程'),
+        content: Text('确定结束 "${widget.item.name}" 的进程？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('结束', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final killed = await LaunchService().killProcess(widget.item.name);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(killed ? '已结束 "${widget.item.name}" 的进程' : '结束进程失败'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.isGridMode) return _buildGridTile(context);
@@ -268,6 +298,21 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                             icon: const Icon(Icons.play_arrow, color: Colors.green),
                             tooltip: '启动',
                             onPressed: () => _onLaunch(context),
+                          ),
+                          ValueListenableBuilder<List<ProcessInfo>>(
+                            valueListenable: LaunchService().runningProcesses,
+                            builder: (_, processes, _) {
+                              final isRunning = processes.any(
+                                  (p) => p.itemName == widget.item.name);
+                              return isRunning
+                                  ? IconButton(
+                                      icon: const Icon(Icons.stop_circle_outlined,
+                                          color: Colors.red),
+                                      tooltip: '结束进程',
+                                      onPressed: () => _onKillProcess(context),
+                                    )
+                                  : const SizedBox.shrink();
+                            },
                           ),
                           IconButton(
                             icon: const Icon(Icons.edit_outlined),

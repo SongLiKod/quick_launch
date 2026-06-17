@@ -7,6 +7,7 @@ import 'package:win32/win32.dart';
 import 'app.dart';
 import 'services/item_service.dart';
 import 'services/hotkey_service.dart';
+import 'services/launch_service.dart';
 import 'services/settings_service.dart';
 import 'services/launch_log_service.dart';
 import 'services/update_service.dart';
@@ -285,6 +286,7 @@ Future<void> _initSystemTray() async {
         label: '重新加载',
         onClicked: (_) async {
           // 启动新进程后退出当前进程
+          await LaunchService().killAllProcesses();
           await Process.start(Platform.resolvedExecutable, []);
           HotkeyService().dispose();
           await _settingsChannel.invokeMethod('requestExit');
@@ -294,6 +296,7 @@ Future<void> _initSystemTray() async {
       MenuItemLabel(
         label: '退出',
         onClicked: (_) async {
+          await LaunchService().killAllProcesses();
           HotkeyService().dispose();
           await _settingsChannel.invokeMethod('requestExit');
         },

@@ -7,6 +7,7 @@ import 'package:win32/win32.dart';
 import '../services/settings_service.dart';
 import '../services/item_service.dart';
 import '../services/hotkey_service.dart';
+import '../services/launch_service.dart';
 import '../services/update_service.dart';
 import 'logs_page.dart';
 
@@ -209,6 +210,11 @@ class SettingsPage extends StatelessWidget {
             subtitle: '从文件导入启动项',
             onTap: () => _importConfig(context),
           ),
+          const Divider(height: 1),
+
+          // ===== 当前运行的进程 =====
+          _sectionHeader(context, '当前运行的进程'),
+          _runningProcessesSection(context),
           const Divider(height: 1),
 
           // ===== 诊断 =====
@@ -733,6 +739,53 @@ class SettingsPage extends StatelessWidget {
         subtitle: Text(subtitle),
         trailing: Switch(value: v, onChanged: onChanged),
         onTap: () => onChanged(!v),
+      ),
+    );
+  }
+
+  Widget _runningProcessesSection(BuildContext context) {
+    return ValueListenableBuilder<List<ProcessInfo>>(
+      valueListenable: LaunchService().runningProcesses,
+      builder: (_, processes, _) {
+        if (processes.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              '没有正在运行的进程',
+              style: TextStyle(color: Colors.grey),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text(
+                '共 ${processes.length} 个进程',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ),
+            ...processes.map((info) => _processTile(context, info)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _processTile(BuildContext context, ProcessInfo info) {
+    return ListTile(
+      leading: const Icon(Icons.miscellaneous_services, color: Colors.blue),
+      title: Text(info.itemName),
+      subtitle: Text('PID: ${info.pid}  •  运行 ${info.runningDurationText}'),
+      trailing: FilledButton.tonalIcon(
+        onPressed: () async {
+          await LaunchService().killProcess(info.itemName);
+        },
+        icon: const Icon(Icons.stop, size: 16),
+        label: const Text('结束'),
+        style: FilledButton.styleFrom(
+          foregroundColor: Colors.red,
+        ),
       ),
     );
   }
