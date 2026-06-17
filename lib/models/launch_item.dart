@@ -12,6 +12,7 @@ class LaunchItem {
   String? groupId;
   int launchCount;
   DateTime? lastLaunchAt;
+  List<String> aliases;
 
   LaunchItem({
     required this.id,
@@ -25,7 +26,9 @@ class LaunchItem {
     this.groupId,
     this.launchCount = 0,
     this.lastLaunchAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+    List<String>? aliases,
+  })  : createdAt = createdAt ?? DateTime.now(),
+      aliases = aliases ?? [];
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -39,6 +42,7 @@ class LaunchItem {
         'groupId': groupId,
         'launchCount': launchCount,
         'lastLaunchAt': lastLaunchAt?.toIso8601String(),
+        'aliases': aliases,
       };
 
   factory LaunchItem.fromJson(Map<String, dynamic> json) => LaunchItem(
@@ -54,6 +58,9 @@ class LaunchItem {
         launchCount: json['launchCount'] as int? ?? 0,
         lastLaunchAt: json['lastLaunchAt'] != null
             ? DateTime.parse(json['lastLaunchAt'] as String)
+            : null,
+        aliases: json['aliases'] != null
+            ? List<String>.from(json['aliases'] as List)
             : null,
       );
 }

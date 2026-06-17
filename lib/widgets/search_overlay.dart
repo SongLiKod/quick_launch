@@ -95,6 +95,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
   List<LaunchItem> _allItems = [];
   List<LaunchItem> _filteredItems = [];
   int _selectedIndex = 0;
+  final Set<String> _aliasMatchIds = {};
 
   @override
   void initState() {
@@ -137,11 +138,21 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   .map((g) => g.name)
                   .firstOrNull ??
                   '';
+          final aliasesText = item.aliases.join(' ');
           final searchText =
-              '${item.name} ${item.targetPath} $typeLabel ${item.type.name} $groupName'
+              '${item.name} ${item.targetPath} $typeLabel ${item.type.name} $groupName $aliasesText'
                   .toLowerCase();
           return searchText.contains(query);
         }).toList();
+        // 标记别名匹配的项
+        _aliasMatchIds.clear();
+        if (query.isNotEmpty) {
+          for (final item in _filteredItems) {
+            if (item.aliases.any((a) => a.toLowerCase().contains(query))) {
+              _aliasMatchIds.add(item.id);
+            }
+          }
+        }
       }
       if (_selectedIndex >= _filteredItems.length) {
         _selectedIndex = _filteredItems.isEmpty ? 0 : _filteredItems.length - 1;
@@ -165,6 +176,21 @@ class _SearchOverlayState extends State<SearchOverlay> {
     final groups = GroupService().groups.value;
     final group = groups.where((g) => g.id == groupId).firstOrNull;
     return group?.name;
+  }
+
+  Widget _buildAliasBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: Colors.purple.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
+      ),
+      child: const Text(
+        '别名',
+        style: TextStyle(fontSize: 10, color: Colors.purple, height: 1.3),
+      ),
+    );
   }
 
   @override
@@ -335,6 +361,25 @@ class _SearchOverlayState extends State<SearchOverlay> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (item.aliases.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: item.aliases.map((a) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(3),
+                              border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
+                            ),
+                            child: Text(
+                              a,
+                              style: const TextStyle(fontSize: 10, color: Colors.purple, height: 1.3),
+                            ),
+                          )).toList(),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -343,6 +388,10 @@ class _SearchOverlayState extends State<SearchOverlay> {
                 if (groupName != null) ...[
                   const SizedBox(width: 4),
                   _buildGroupBadge(groupName),
+                ],
+                if (_aliasMatchIds.contains(item.id)) ...[
+                  const SizedBox(width: 4),
+                  _buildAliasBadge(),
                 ],
               ],
             ),
