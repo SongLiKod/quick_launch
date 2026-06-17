@@ -29,7 +29,7 @@ class ItemTile extends StatefulWidget {
   State<ItemTile> createState() => _ItemTileState();
 }
 
-class _ItemTileState extends State<ItemTile> with SingleTickerProviderStateMixin {
+class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _scaleAnim;
 
