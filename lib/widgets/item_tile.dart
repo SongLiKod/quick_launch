@@ -5,7 +5,7 @@ import '../services/item_service.dart';
 import '../services/launch_service.dart';
 import 'add_item_dialog.dart';
 
-class ItemTile extends StatelessWidget {
+class ItemTile extends StatefulWidget {
   final LaunchItem item;
   final int? index;
   final bool isGridMode;
@@ -25,13 +25,84 @@ class ItemTile extends StatelessWidget {
     this.onSelect,
   });
 
+  @override
+  State<ItemTile> createState() => _ItemTileState();
+}
+
+class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _scaleAnim;
+
+  late AnimationController _shakeController;
+  late Animation<Offset> _shakeAnim;
+  final ValueNotifier<Color?> _borderColor = ValueNotifier(null);
+
+  @override
+  void initState() {
+    super.initState();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.92), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.92, end: 1.0), weight: 1),
+    ]).animate(CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    ));
+
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _shakeAnim = TweenSequence<Offset>([
+      TweenSequenceItem(
+          tween: Tween(begin: Offset.zero, end: const Offset(-4, 0)), weight: 1),
+      TweenSequenceItem(
+          tween: Tween(begin: const Offset(-4, 0), end: const Offset(4, 0)), weight: 1),
+      TweenSequenceItem(
+          tween: Tween(begin: const Offset(4, 0), end: const Offset(-3, 0)), weight: 1),
+      TweenSequenceItem(
+          tween: Tween(begin: const Offset(-3, 0), end: const Offset(3, 0)), weight: 1),
+      TweenSequenceItem(
+          tween: Tween(begin: const Offset(3, 0), end: const Offset(-1, 0)), weight: 1),
+      TweenSequenceItem(
+          tween: Tween(begin: const Offset(-1, 0), end: Offset.zero), weight: 1),
+    ]).animate(CurvedAnimation(
+      parent: _shakeController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _shakeController.dispose();
+    _borderColor.dispose();
+    super.dispose();
+  }
+
   void _onLaunch(BuildContext context) async {
-    final result = await LaunchService().launch(item);
+    final result = await LaunchService().launch(widget.item);
+    if (!mounted) return;
+
+    if (result.success) {
+      _pulseController.forward().then((_) => _pulseController.reset());
+    } else {
+      _borderColor.value = Colors.red;
+      _shakeController.forward().then((_) {
+        _borderColor.value = null;
+        _shakeController.reset();
+      });
+    }
+
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(result.success
-            ? '正在启动 ${item.name}...'
+            ? '正在启动 ${widget.item.name}...'
             : '启动失败: ${result.errorMessage ?? "未知错误"}'),
         duration: Duration(seconds: result.success ? 1 : 3),
       ),
@@ -41,13 +112,13 @@ class ItemTile extends StatelessWidget {
   void _onEdit(BuildContext context) async {
     final result = await showDialog<LaunchItem>(
       context: context,
-      builder: (ctx) => AddItemDialog(item: item),
+      builder: (ctx) => AddItemDialog(item: widget.item),
     );
     if (result == null) return;
 
     // 原快捷键变了 → 先注销旧的
-    if (item.hotkeyVirtualKey != null) {
-      HotkeyService().unregisterItemHotkey(item);
+    if (widget.item.hotkeyVirtualKey != null) {
+      HotkeyService().unregisterItemHotkey(widget.item);
     }
 
     // 更新数据
@@ -64,7 +135,7 @@ class ItemTile extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
-        content: Text('删除"${item.name}"？'),
+        content: Text('删除"${widget.item.name}"？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -72,10 +143,10 @@ class ItemTile extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              if (item.hotkeyVirtualKey != null) {
-                HotkeyService().unregisterItemHotkey(item);
+              if (widget.item.hotkeyVirtualKey != null) {
+                HotkeyService().unregisterItemHotkey(widget.item);
               }
-              ItemService().removeItem(item.id);
+              ItemService().removeItem(widget.item.id);
               Navigator.of(ctx).pop();
             },
             child: const Text('删除', style: TextStyle(color: Colors.red)),
@@ -87,215 +158,259 @@ class ItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isGridMode) return _buildGridTile(context);
+    if (widget.isGridMode) return _buildGridTile(context);
     return _buildListTile(context);
   }
 
   Widget _buildListTile(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            if (selectMode)
-              Checkbox(
-                value: isSelected,
-                onChanged: (v) => onSelect?.call(v ?? false),
-              ),
-            if (!selectMode && index != null)
-              ReorderableDragStartListener(
-                index: index!,
-                child: const Padding(
-                  padding: EdgeInsets.only(right: 4),
-                  child: Icon(Icons.drag_handle, color: Colors.grey),
-                ),
-              ),
-            _buildIcon(),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _buildTypeLabel(),
-                      if (_isStale()) ...[
-                        const SizedBox(width: 4),
-                        _buildStaleBadge(),
-                      ],
-                      if (groupName != null) ...[
-                        const SizedBox(width: 4),
-                        _buildGroupBadge(),
-                      ],
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          item.name,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+    return AnimatedBuilder(
+      animation: Listenable.merge([_pulseController, _shakeController, _borderColor]),
+      builder: (context, _) {
+        return Transform.scale(
+          scale: _scaleAnim.value,
+          child: Transform.translate(
+            offset: _shakeAnim.value,
+            child: ValueListenableBuilder<Color?>(
+              valueListenable: _borderColor,
+              builder: (_, borderColor, child) {
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  shape: borderColor != null
+                      ? RoundedRectangleBorder(
+                          side: BorderSide(color: borderColor, width: 2),
+                          borderRadius: BorderRadius.circular(8),
+                        )
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      children: [
+                        if (widget.selectMode)
+                          Checkbox(
+                            value: widget.isSelected,
+                            onChanged: (v) => widget.onSelect?.call(v ?? false),
+                          ),
+                        if (!widget.selectMode && widget.index != null)
+                          ReorderableDragStartListener(
+                            index: widget.index!,
+                            child: const Padding(
+                              padding: EdgeInsets.only(right: 4),
+                              child: Icon(Icons.drag_handle, color: Colors.grey),
+                            ),
+                          ),
+                        _buildIcon(),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  _buildTypeLabel(),
+                                  if (_isStale()) ...[
+                                    const SizedBox(width: 4),
+                                    _buildStaleBadge(),
+                                  ],
+                                  if (widget.groupName != null) ...[
+                                    const SizedBox(width: 4),
+                                    _buildGroupBadge(),
+                                  ],
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      widget.item.name,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.item.targetPath,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (widget.item.aliases.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  spacing: 4,
+                                  runSpacing: 2,
+                                  children: widget.item.aliases.map((a) => Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.purple.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(3),
+                                      border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
+                                    ),
+                                    child: Text(
+                                      a,
+                                      style: const TextStyle(fontSize: 10, color: Colors.purple, height: 1.3),
+                                    ),
+                                  )).toList(),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.targetPath,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
+                        if (widget.item.hotkeyVirtualKey != null) ...[
+                          _buildHotkeyBadge(),
+                          const SizedBox(width: 8),
+                        ],
+                        if (!widget.selectMode) ...[
+                          IconButton(
+                            icon: const Icon(Icons.play_arrow, color: Colors.green),
+                            tooltip: '启动',
+                            onPressed: () => _onLaunch(context),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            tooltip: '编辑',
+                            onPressed: () => _onEdit(context),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            tooltip: '删除',
+                            onPressed: () => _onDelete(context),
+                          ),
+                        ],
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  if (item.aliases.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 2,
-                      children: item.aliases.map((a) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(3),
-                          border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
-                        ),
-                        child: Text(
-                          a,
-                          style: const TextStyle(fontSize: 10, color: Colors.purple, height: 1.3),
-                        ),
-                      )).toList(),
-                    ),
-                  ],
-                ],
-              ),
+                );
+              },
             ),
-            if (item.hotkeyVirtualKey != null) ...[
-              _buildHotkeyBadge(),
-              const SizedBox(width: 8),
-            ],
-            if (!selectMode) ...[
-              IconButton(
-                icon: const Icon(Icons.play_arrow, color: Colors.green),
-                tooltip: '启动',
-                onPressed: () => _onLaunch(context),
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: '编辑',
-                onPressed: () => _onEdit(context),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                tooltip: '删除',
-                onPressed: () => _onDelete(context),
-              ),
-            ],
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildGridTile(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: selectMode
-            ? () => onSelect?.call(!isSelected)
-            : () => _onLaunch(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          child: Row(
-            children: [
-              if (selectMode)
-                Checkbox(
-                  value: isSelected,
-                  onChanged: (v) => onSelect?.call(v ?? false),
-                  visualDensity: VisualDensity.compact,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              _buildIcon(size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+    return AnimatedBuilder(
+      animation: Listenable.merge([_pulseController, _shakeController, _borderColor]),
+      builder: (context, _) {
+        return Transform.scale(
+          scale: _scaleAnim.value,
+          child: Transform.translate(
+            offset: _shakeAnim.value,
+            child: ValueListenableBuilder<Color?>(
+              valueListenable: _borderColor,
+              builder: (_, borderColor, child) {
+                return Card(
+                  margin: EdgeInsets.zero,
+                  clipBehavior: Clip.antiAlias,
+                  shape: borderColor != null
+                      ? RoundedRectangleBorder(
+                          side: BorderSide(color: borderColor, width: 2),
+                          borderRadius: BorderRadius.circular(4),
+                        )
+                      : null,
+                  child: InkWell(
+                    onTap: widget.selectMode
+                        ? () => widget.onSelect?.call(!widget.isSelected)
+                        : () => _onLaunch(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      child: Row(
+                        children: [
+                          if (widget.selectMode)
+                            Checkbox(
+                              value: widget.isSelected,
+                              onChanged: (v) => widget.onSelect?.call(v ?? false),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          _buildIcon(size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.item.name,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Row(
+                                  children: [
+                                    _buildTypeLabel(),
+                                    if (_isStale()) ...[
+                                      const SizedBox(width: 4),
+                                      _buildStaleBadge(),
+                                    ],
+                                    if (widget.groupName != null) ...[
+                                      const SizedBox(width: 4),
+                                      _buildGroupBadge(),
+                                    ],
+                                    if (widget.item.hotkeyVirtualKey != null) ...[
+                                      const SizedBox(width: 4),
+                                      _buildHotkeyBadge(),
+                                    ],
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          _buildMiniIconButton(
+                            icon: Icons.play_arrow,
+                            color: Colors.green,
+                            tooltip: '启动',
+                            onPressed: () => _onLaunch(context),
+                          ),
+                          PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_horiz, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            onSelected: (action) {
+                              if (action == 'edit') _onEdit(context);
+                              if (action == 'delete') _onDelete(context);
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit_outlined, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('编辑'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('删除', style: TextStyle(color: Colors.red)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Row(
-                      children: [
-                        _buildTypeLabel(),
-                        if (_isStale()) ...[
-                          const SizedBox(width: 4),
-                          _buildStaleBadge(),
-                        ],
-                        if (groupName != null) ...[
-                          const SizedBox(width: 4),
-                          _buildGroupBadge(),
-                        ],
-                        if (item.hotkeyVirtualKey != null) ...[
-                          const SizedBox(width: 4),
-                          _buildHotkeyBadge(),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 4),
-              _buildMiniIconButton(
-                icon: Icons.play_arrow,
-                color: Colors.green,
-                tooltip: '启动',
-                onPressed: () => _onLaunch(context),
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_horiz, size: 18),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                onSelected: (action) {
-                  if (action == 'edit') _onEdit(context);
-                  if (action == 'delete') _onDelete(context);
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit_outlined, size: 18),
-                        SizedBox(width: 8),
-                        Text('编辑'),
-                      ],
                     ),
                   ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('删除', style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                );
+              },
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -317,7 +432,7 @@ class ItemTile extends StatelessWidget {
   }
 
   Widget _buildIcon({double size = 24}) {
-    switch (item.type) {
+    switch (widget.item.type) {
       case ItemType.executable:
         return Icon(Icons.miscellaneous_services, color: Colors.blue, size: size);
       case ItemType.batScript:
@@ -336,7 +451,7 @@ class ItemTile extends StatelessWidget {
   }
 
   Widget _buildTypeLabel() {
-    final (label, color) = switch (item.type) {
+    final (label, color) = switch (widget.item.type) {
       ItemType.executable => ('应用', Colors.blue),
       ItemType.batScript => ('脚本', Colors.orange),
       ItemType.file => ('文件', Colors.grey),
@@ -368,7 +483,7 @@ class ItemTile extends StatelessWidget {
         border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
       ),
       child: Text(
-        groupName!,
+        widget.groupName!,
         style: const TextStyle(fontSize: 10, color: Colors.grey, height: 1.3),
       ),
     );
@@ -376,14 +491,14 @@ class ItemTile extends StatelessWidget {
 
   Widget _buildHotkeyBadge() {
     final mod = <String>[];
-    if (item.hotkeyModifiers != null) {
-      if (item.hotkeyModifiers! & 0x01 != 0) mod.add('Alt');
-      if (item.hotkeyModifiers! & 0x02 != 0) mod.add('Ctrl');
-      if (item.hotkeyModifiers! & 0x04 != 0) mod.add('Shift');
-      if (item.hotkeyModifiers! & 0x08 != 0) mod.add('Win');
+    if (widget.item.hotkeyModifiers != null) {
+      if (widget.item.hotkeyModifiers! & 0x01 != 0) mod.add('Alt');
+      if (widget.item.hotkeyModifiers! & 0x02 != 0) mod.add('Ctrl');
+      if (widget.item.hotkeyModifiers! & 0x04 != 0) mod.add('Shift');
+      if (widget.item.hotkeyModifiers! & 0x08 != 0) mod.add('Win');
     }
-    final keyName = item.hotkeyVirtualKey != null
-        ? _virtualKeyName(item.hotkeyVirtualKey!)
+    final keyName = widget.item.hotkeyVirtualKey != null
+        ? _virtualKeyName(widget.item.hotkeyVirtualKey!)
         : '';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -400,8 +515,8 @@ class ItemTile extends StatelessWidget {
   }
 
   bool _isStale() {
-    if (item.lastLaunchAt == null) return false;
-    final daysSinceLastUse = DateTime.now().difference(item.lastLaunchAt!).inDays;
+    if (widget.item.lastLaunchAt == null) return false;
+    final daysSinceLastUse = DateTime.now().difference(widget.item.lastLaunchAt!).inDays;
     return daysSinceLastUse >= 30;
   }
 
@@ -414,7 +529,7 @@ class ItemTile extends StatelessWidget {
         border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
       ),
       child: Text(
-        item.lastLaunchAt == null ? '未使用' : '30天未使用',
+        widget.item.lastLaunchAt == null ? '未使用' : '30天未使用',
         style: const TextStyle(fontSize: 10, color: Colors.orange, height: 1.3),
       ),
     );
