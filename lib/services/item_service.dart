@@ -41,6 +41,15 @@ class ItemService {
     applySort();
   }
 
+  /// 批量添加启动项
+  Future<void> addItems(List<LaunchItem> newItems) async {
+    if (newItems.isEmpty) return;
+    final list = [...items.value, ...newItems];
+    items.value = list;
+    await _save();
+    applySort();
+  }
+
   Future<void> removeItem(String id) async {
     final list = items.value.where((e) => e.id != id).toList();
     items.value = list;
