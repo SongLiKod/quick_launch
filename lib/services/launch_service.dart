@@ -13,17 +13,18 @@ typedef LaunchResult = ({bool success, String? errorMessage});
 class ProcessInfo {
   final String itemName;
   final String targetPath;
-  final Process process;
+  final Process? process;
   final DateTime startTime;
+  bool _killed = false;
 
   ProcessInfo({
     required this.itemName,
     required this.targetPath,
-    required this.process,
+    this.process,
     required this.startTime,
   });
 
-  int get pid => process.pid;
+  int get pid => process?.pid ?? 0;
 
   Duration get runningDuration => DateTime.now().difference(startTime);
 
@@ -54,21 +55,21 @@ class LaunchService {
       switch (item.type) {
         case ItemType.executable:
         case ItemType.batScript:
-          final process = await Process.start(
-            item.targetPath,
-            [],
-            workingDirectory: _parentDir(item.targetPath),
-          );
-          _trackProcess(item.name, item.targetPath, process);
-          break;
-
         case ItemType.file:
-          await Process.run(
-            'start',
-            ['""', item.targetPath],
+        case ItemType.command:
+        case ItemType.link:
+          // 用 Process.start + runInShell 启动，这样能持有进程引用
+          final args = item.type == ItemType.command
+              ? <String>['/k', item.targetPath]
+              : <String>[];
+          final exe = item.type == ItemType.command ? 'cmd' : item.targetPath;
+          final process = await Process.start(
+            exe,
+            args,
             runInShell: true,
             workingDirectory: _parentDir(item.targetPath),
           );
+          _trackProcess(item.name, item.targetPath, process);
           break;
 
         case ItemType.folder:
@@ -77,26 +78,12 @@ class LaunchService {
             [item.targetPath],
             runInShell: false,
           );
+          // 文件夹无法追踪进程，显示 3 秒占位
+          _trackPlaceholder(item.name, item.targetPath);
           break;
 
         case ItemType.system:
           SystemCommands.execute(item.targetPath);
-          break;
-
-        case ItemType.command:
-          await Process.run(
-            'start',
-            ['""', 'cmd', '/k', item.targetPath],
-            runInShell: true,
-          );
-          break;
-
-        case ItemType.link:
-          await Process.run(
-            'start',
-            ['""', item.targetPath],
-            runInShell: true,
-          );
           break;
       }
 
@@ -145,8 +132,25 @@ class LaunchService {
     _processes[itemName] = info;
     _notifyProcesses();
 
-    // 进程退出时自动清理
-    process.exitCode.then((_) {
+    // 进程退出时自动清理（延迟 2 秒，让用户能看到按钮）
+    process.exitCode.then((_) async {
+      await Future.delayed(const Duration(seconds: 2));
+      _processes.remove(itemName);
+      _notifyProcesses();
+    });
+  }
+
+  void _trackPlaceholder(String itemName, String targetPath) {
+    if (_processes.containsKey(itemName)) return;
+    final info = ProcessInfo(
+      itemName: itemName,
+      targetPath: targetPath,
+      startTime: DateTime.now(),
+    );
+    _processes[itemName] = info;
+    _notifyProcesses();
+    // 3 秒后自动移除
+    Future.delayed(const Duration(seconds: 3), () {
       _processes.remove(itemName);
       _notifyProcesses();
     });
@@ -157,10 +161,13 @@ class LaunchService {
   Future<bool> killProcess(String itemName) async {
     final info = _processes[itemName];
     if (info == null) return false;
+    if (info.process == null) return false;
     try {
-      info.process.kill();
-      // 等进程退出清理
-      await info.process.exitCode;
+      info.process!.kill();
+      info._killed = true;
+      await info.process!.exitCode;
+      _processes.remove(itemName);
+      _notifyProcesses();
       return true;
     } catch (_) {
       return false;
@@ -171,10 +178,8 @@ class LaunchService {
     final names = _processes.keys.toList();
     for (final name in names) {
       try {
-        _processes[name]?.process.kill();
-      } catch (_) {
-        // 忽略单个进程杀不掉的情况
-      }
+        _processes[name]?.process?.kill();
+      } catch (_) {}
     }
     _processes.clear();
     _notifyProcesses();
