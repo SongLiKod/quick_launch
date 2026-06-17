@@ -115,15 +115,33 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
   void _onSearchChanged() {
     final query = _searchController.text.trim().toLowerCase();
+    final groups = GroupService().groups.value;
     setState(() {
       if (query.isEmpty) {
         _filteredItems = List.from(_allItems);
       } else {
-        _filteredItems = _allItems
-            .where((item) =>
-                item.name.toLowerCase().contains(query) ||
-                item.targetPath.toLowerCase().contains(query))
-            .toList();
+        _filteredItems = _allItems.where((item) {
+          final typeLabel = switch (item.type) {
+            ItemType.executable => '应用',
+            ItemType.batScript => '脚本',
+            ItemType.file => '文件',
+            ItemType.folder => '文件夹',
+            ItemType.system => '系统',
+            ItemType.command => '命令',
+            ItemType.link => '链接',
+          };
+          final groupName = item.groupId == null
+              ? ''
+              : groups
+                  .where((g) => g.id == item.groupId)
+                  .map((g) => g.name)
+                  .firstOrNull ??
+                  '';
+          final searchText =
+              '${item.name} ${item.targetPath} $typeLabel ${item.type.name} $groupName'
+                  .toLowerCase();
+          return searchText.contains(query);
+        }).toList();
       }
       if (_selectedIndex >= _filteredItems.length) {
         _selectedIndex = _filteredItems.isEmpty ? 0 : _filteredItems.length - 1;
