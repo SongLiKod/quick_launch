@@ -178,6 +178,7 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
+    final count = _selectedIds.length;
     await _itemService.removeItems(_selectedIds.toList());
     setState(() {
       _selectionMode = false;
@@ -186,7 +187,7 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已删除 $_selectedCount 个启动项'),
+        content: Text('已删除 $count 个启动项'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -248,6 +249,7 @@ class _HomePageState extends State<HomePage> {
     );
     if (result == null) return;
 
+    final count = _selectedIds.length;
     await _groupService.moveItemsToGroup(
         _selectedIds.toList(), result == '__no_group__' ? null : result);
     setState(() {
@@ -257,7 +259,7 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('已移动 $_selectedCount 个启动项'),
+        content: Text('已移动 $count 个启动项'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -548,7 +550,9 @@ class _HomePageState extends State<HomePage> {
           if (_selectionMode) _buildBatchActionBar(),
         ],
       ),
-      floatingActionButton: Column(
+      floatingActionButton: _selectionMode
+          ? null
+          : Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           FloatingActionButton.small(
