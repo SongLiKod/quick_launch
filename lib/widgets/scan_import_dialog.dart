@@ -243,6 +243,7 @@ class _ScanImportDialogState extends State<ScanImportDialog> {
         setState(() {
           _tabIndex = index;
           _scannedItems = null;
+          _configExpanded = true;
         });
       },
       child: Container(
