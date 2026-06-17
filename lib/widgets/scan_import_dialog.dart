@@ -30,10 +30,26 @@ class _ScanImportDialogState extends State<ScanImportDialog> {
   List<ScannedItem>? _scannedItems;
   String? _selectedGroupId;
   final _namePrefixController = TextEditingController();
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  /// 根据搜索关键词过滤后的可见项
+  List<ScannedItem> get _filteredItems {
+    if (_scannedItems == null || _searchQuery.isEmpty) {
+      return _scannedItems ?? [];
+    }
+    final q = _searchQuery.toLowerCase();
+    return _scannedItems!
+        .where((item) =>
+            item.name.toLowerCase().contains(q) ||
+            item.targetPath.toLowerCase().contains(q))
+        .toList();
+  }
 
   @override
   void dispose() {
     _namePrefixController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -86,9 +102,13 @@ class _ScanImportDialogState extends State<ScanImportDialog> {
 
   void _toggleSelectAll(bool? selected) {
     if (_scannedItems == null) return;
+    final visible = _filteredItems;
+    if (visible.isEmpty) return;
+    // 如果所有可见项都已选中，则取消全选；否则全选
+    final allSelected = visible.every((item) => item.selected);
     setState(() {
-      for (final item in _scannedItems!) {
-        item.selected = selected ?? true;
+      for (final item in visible) {
+        item.selected = !allSelected;
       }
     });
   }
@@ -420,17 +440,40 @@ class _ScanImportDialogState extends State<ScanImportDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 24),
+        // ── 搜索框 ──
+        TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: '搜索过滤结果...',
+            prefixIcon: const Icon(Icons.search, size: 18),
+            border: const OutlineInputBorder(),
+            isDense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () {
+                      _searchController.clear();
+                      _searchQuery = '';
+                      setState(() {});
+                    },
+                  )
+                : null,
+          ),
+          onChanged: (v) => setState(() => _searchQuery = v),
+        ),
+        const SizedBox(height: 8),
         Row(
           children: [
             Checkbox(
-              value: _scannedItems!.every((i) => i.selected),
-              tristate: true,
+              value: _filteredItems.every((i) => i.selected),
               onChanged: _toggleSelectAll,
             ),
             const Text('全选'),
             const Spacer(),
             Text(
-              '已选 $_selectedCount 项',
+              '已选 $_selectedCount / ${_scannedItems!.length} 项',
               style: TextStyle(
                   fontSize: 12, color: theme.colorScheme.primary),
             ),
@@ -443,15 +486,22 @@ class _ScanImportDialogState extends State<ScanImportDialog> {
                 color: theme.dividerColor.withValues(alpha: 0.3)),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            itemCount: _scannedItems!.length,
+          child: _filteredItems.isEmpty
+              ? const Center(
+                  child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('无匹配项',
+                      style: TextStyle(color: Colors.grey)),
+                ))
+              : ListView.separated(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _filteredItems.length,
             separatorBuilder: (_, _) => Divider(
                 height: 1,
                 color: theme.dividerColor.withValues(alpha: 0.2)),
             itemBuilder: (_, i) {
-              final item = _scannedItems![i];
+              final item = _filteredItems[i];
               final typeLabel = switch (item.type) {
                 ItemType.executable => '应用',
                 ItemType.batScript => '脚本',
