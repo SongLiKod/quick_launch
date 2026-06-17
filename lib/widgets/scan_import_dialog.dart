@@ -27,6 +27,7 @@ class _ScanImportDialogState extends State<ScanImportDialog> {
 
   // ── 通用状态 ──
   bool _isScanning = false;
+  bool _configExpanded = true;
   List<ScannedItem>? _scannedItems;
   String? _selectedGroupId;
   final _namePrefixController = TextEditingController();
@@ -171,7 +172,8 @@ class _ScanImportDialogState extends State<ScanImportDialog> {
         ],
       ),
       content: SizedBox(
-        width: 560,
+        width: 600,
+        height: 520,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -183,15 +185,35 @@ class _ScanImportDialogState extends State<ScanImportDialog> {
                   _buildTab('📁  文件夹扫描', 0),
                   const SizedBox(width: 8),
                   _buildTab('💻  已安装软件', 1),
+                  const Spacer(),
+                  // 扫描后有结果时允许折叠/展开设置区
+                  if (_scannedItems != null && _scannedItems!.isNotEmpty)
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        icon: Icon(
+                          _configExpanded
+                              ? Icons.expand_less
+                              : Icons.expand_more,
+                          size: 20,
+                        ),
+                        onPressed: () =>
+                            setState(() => _configExpanded = !_configExpanded),
+                        tooltip: _configExpanded ? '收起设置' : '展开设置',
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 16),
 
-              // ── Tab 内容 ──
-              if (_tabIndex == 0) _buildFolderScanTab(theme),
-              if (_tabIndex == 1) _buildInstalledScanTab(theme),
-
-              const SizedBox(height: 12),
+              // ── Tab 内容（可折叠）──
+              if (_configExpanded) ...[
+                if (_tabIndex == 0) _buildFolderScanTab(theme),
+                if (_tabIndex == 1) _buildInstalledScanTab(theme),
+                const SizedBox(height: 12),
+              ],
 
               // ── 扫描结果 ──
               if (_scannedItems != null) _buildResultSection(theme, groups),
@@ -480,7 +502,7 @@ class _ScanImportDialogState extends State<ScanImportDialog> {
           ],
         ),
         Container(
-          constraints: const BoxConstraints(maxHeight: 200),
+          constraints: const BoxConstraints(maxHeight: 360),
           decoration: BoxDecoration(
             border: Border.all(
                 color: theme.dividerColor.withValues(alpha: 0.3)),
