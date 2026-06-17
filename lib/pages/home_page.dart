@@ -11,6 +11,7 @@ import '../widgets/item_tile.dart';
 import '../widgets/add_item_dialog.dart';
 import '../widgets/group_manage_dialog.dart';
 import '../widgets/group_hotkey_overlay.dart';
+import '../widgets/scan_import_dialog.dart';
 import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -82,6 +83,21 @@ class _HomePageState extends State<HomePage> {
       if (result.hotkeyVirtualKey != null) {
         HotkeyService().registerItemHotkey(result);
       }
+    }
+  }
+
+  Future<void> _showScanImportDialog() async {
+    final count = await showDialog<int>(
+      context: context,
+      builder: (ctx) => const ScanImportDialog(),
+    );
+    if (count != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('成功导入 $count 个启动项'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -331,9 +347,23 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddDialog,
-        child: const Icon(Icons.add),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'scan',
+            onPressed: _showScanImportDialog,
+            tooltip: '批量扫描导入',
+            child: const Icon(Icons.manage_search, size: 20),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton(
+            heroTag: 'add',
+            onPressed: _showAddDialog,
+            tooltip: '添加启动项',
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
     );
   }
