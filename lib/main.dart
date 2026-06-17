@@ -282,6 +282,16 @@ Future<void> _initSystemTray() async {
       ),
       MenuSeparator(),
       MenuItemLabel(
+        label: '重新加载',
+        onClicked: (_) async {
+          // 启动新进程后退出当前进程
+          await Process.start(Platform.resolvedExecutable, []);
+          HotkeyService().dispose();
+          await _settingsChannel.invokeMethod('requestExit');
+        },
+      ),
+      MenuSeparator(),
+      MenuItemLabel(
         label: '退出',
         onClicked: (_) async {
           HotkeyService().dispose();
