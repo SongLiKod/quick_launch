@@ -15,7 +15,6 @@ class ProcessInfo {
   final String targetPath;
   final Process? process;
   final DateTime startTime;
-  bool _killed = false;
 
   ProcessInfo({
     required this.itemName,
@@ -164,7 +163,6 @@ class LaunchService {
     if (info.process == null) return false;
     try {
       info.process!.kill();
-      info._killed = true;
       await info.process!.exitCode;
       _processes.remove(itemName);
       _notifyProcesses();
