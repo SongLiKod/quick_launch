@@ -19,6 +19,7 @@ class AddItemDialog extends StatefulWidget {
 class _AddItemDialogState extends State<AddItemDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _pathController;
+  final TextEditingController _aliasController = TextEditingController();
   late bool _runAsAdmin;
   int? _hotkeyModifiers;
   int? _hotkeyVirtualKey;
@@ -26,6 +27,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
   late ItemType _detectedType;
   late String _mode; // 'file', 'command', 'link'
   String? _groupId;
+  List<String> _aliases = [];
 
   bool get _isEditing => widget.item != null;
   String? _conflictHint; // 快捷键冲突提示
@@ -46,6 +48,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
             ? 'link'
             : 'file';
     _groupId = existing?.groupId;
+    _aliases = existing?.aliases ?? [];
 
     if (existing?.hotkeyVirtualKey != null) {
       final mods = <String>[];
@@ -64,6 +67,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
   void dispose() {
     _nameController.dispose();
     _pathController.dispose();
+    _aliasController.dispose();
     super.dispose();
   }
 
@@ -358,9 +362,24 @@ class _AddItemDialogState extends State<AddItemDialog> {
       hotkeyVirtualKey: _hotkeyVirtualKey,
       runAsAdmin: _runAsAdmin,
       groupId: _groupId,
+      aliases: _aliases.isEmpty ? null : _aliases,
     );
 
     Navigator.of(context).pop(item);
+  }
+
+  void _addAlias() {
+    final alias = _aliasController.text.trim();
+    if (alias.isEmpty) return;
+    if (_aliases.contains(alias)) return;
+    setState(() {
+      _aliases.add(alias);
+      _aliasController.clear();
+    });
+  }
+
+  void _removeAlias(String alias) {
+    setState(() => _aliases.remove(alias));
   }
 
   @override
@@ -566,6 +585,46 @@ class _AddItemDialogState extends State<AddItemDialog> {
                 Switch(
                   value: _runAsAdmin,
                   onChanged: (v) => setState(() => _runAsAdmin = v),
+                ),
+              ],
+            ),
+            // ── 别名区域 ──
+            const SizedBox(height: 8),
+            const Text('别名', style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                ..._aliases.map((alias) => Chip(
+                      label: Text(alias, style: const TextStyle(fontSize: 12)),
+                      deleteIcon: const Icon(Icons.close, size: 14),
+                      onDeleted: () => _removeAlias(alias),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    )),
+                SizedBox(
+                  width: 140,
+                  height: 32,
+                  child: TextField(
+                    controller: _aliasController,
+                    decoration: InputDecoration(
+                      hintText: '添加别名...',
+                      isDense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.add, size: 16),
+                        onPressed: _addAlias,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                            minWidth: 24, minHeight: 24),
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                    onSubmitted: (_) => _addAlias(),
+                  ),
                 ),
               ],
             ),

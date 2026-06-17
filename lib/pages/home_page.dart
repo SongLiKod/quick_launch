@@ -42,10 +42,12 @@ class _HomePageState extends State<HomePage> {
           .toList();
     }
     if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery;
       filtered = filtered
           .where((item) =>
-              item.name.toLowerCase().contains(_searchQuery) ||
-              item.targetPath.toLowerCase().contains(_searchQuery))
+              item.name.toLowerCase().contains(q) ||
+              item.targetPath.toLowerCase().contains(q) ||
+              item.aliases.any((a) => a.toLowerCase().contains(q)))
           .toList();
     }
     return filtered;
