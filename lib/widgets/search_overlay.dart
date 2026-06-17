@@ -361,6 +361,25 @@ class _SearchOverlayState extends State<SearchOverlay> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      if (item.aliases.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: item.aliases.map((a) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.purple.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(3),
+                              border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
+                            ),
+                            child: Text(
+                              a,
+                              style: const TextStyle(fontSize: 10, color: Colors.purple, height: 1.3),
+                            ),
+                          )).toList(),
+                        ),
+                      ],
                     ],
                   ),
                 ),
