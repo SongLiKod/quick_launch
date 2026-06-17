@@ -28,6 +28,29 @@ class _HomePageState extends State<HomePage> {
   String _searchQuery = '';
   String? _selectedGroupId; // null = 全部
 
+  // 批量选择模式
+  bool _selectionMode = false;
+  final Set<String> _selectedIds = {};
+
+  int get _selectedCount => _selectedIds.length;
+
+  List<LaunchItem> _getFilteredList(List<LaunchItem> list) {
+    var filtered = list;
+    if (_selectedGroupId != null) {
+      filtered = list
+          .where((item) => item.groupId == _selectedGroupId)
+          .toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered
+          .where((item) =>
+              item.name.toLowerCase().contains(_searchQuery) ||
+              item.targetPath.toLowerCase().contains(_searchQuery))
+          .toList();
+    }
+    return filtered;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -107,6 +130,141 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ── 批量选择模式 ──
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _selectionMode = !_selectionMode;
+      if (!_selectionMode) _selectedIds.clear();
+    });
+  }
+
+  void _toggleItemSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  Future<void> _batchDelete() async {
+    if (_selectedIds.isEmpty) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认批量删除'),
+        content: Text('确定删除已选的 $_selectedCount 个启动项？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    // 注销所有选中项的热键
+    final allItems = _itemService.items.value;
+    for (final item in allItems) {
+      if (_selectedIds.contains(item.id) && item.hotkeyVirtualKey != null) {
+        HotkeyService().unregisterItemHotkey(item);
+      }
+    }
+
+    final count = _selectedIds.length;
+    await _itemService.removeItems(_selectedIds.toList());
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已删除 $count 个启动项'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _batchMove() async {
+    if (_selectedIds.isEmpty) return;
+    final groups = _groupService.groups.value;
+    if (groups.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('暂无分组，请先创建分组'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    String? targetGroupId;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('移动到分组'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('无分组'),
+                leading: Icon(
+                  Icons.block,
+                  color: Colors.grey[400],
+                ),
+                selected: targetGroupId == null,
+                onTap: () {
+                  targetGroupId = null;
+                  Navigator.of(ctx).pop('__no_group__');
+                },
+              ),
+              ...groups.map((g) => ListTile(
+                    title: Text(g.name),
+                    leading: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Color(g.colorValue),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    selected: targetGroupId == g.id,
+                    onTap: () {
+                      targetGroupId = g.id;
+                      Navigator.of(ctx).pop(g.id);
+                    },
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (result == null) return;
+
+    final count = _selectedIds.length;
+    await _groupService.moveItemsToGroup(
+        _selectedIds.toList(), result == '__no_group__' ? null : result);
+    setState(() {
+      _selectionMode = false;
+      _selectedIds.clear();
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已移动 $count 个启动项'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Widget _buildGroupFilterBar() {
     final groups = _groupService.groups.value;
     return Container(
@@ -169,6 +327,48 @@ class _HomePageState extends State<HomePage> {
     return group?.name;
   }
 
+  Widget _buildBatchActionBar() {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        border: Border(
+          top: BorderSide(color: theme.dividerColor.withValues(alpha: 0.3)),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Text(
+              '已选 $_selectedCount 项',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const Spacer(),
+            FilledButton.tonalIcon(
+              onPressed: _selectedIds.isEmpty ? null : _batchMove,
+              icon: const Icon(Icons.drive_file_move_outline, size: 18),
+              label: const Text('移动'),
+            ),
+            const SizedBox(width: 12),
+            FilledButton.tonalIcon(
+              onPressed: _selectedIds.isEmpty ? null : _batchDelete,
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('删除'),
+              style: FilledButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildGridLayout(List<LaunchItem> items, int cols) {
     // 将 items 按列数分组为行
     final rows = <List<LaunchItem>>[];
@@ -199,6 +399,9 @@ class _HomePageState extends State<HomePage> {
                       groupName: _selectedGroupId == null
                           ? _getGroupName(row[i].groupId)
                           : null,
+                      selectMode: _selectionMode,
+                      isSelected: _selectedIds.contains(row[i].id),
+                      onSelect: (_) => _toggleItemSelection(row[i].id),
                     ),
                   ),
                 ),
@@ -255,6 +458,11 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           IconButton(
+            icon: Icon(_selectionMode ? Icons.close : Icons.checklist),
+            tooltip: _selectionMode ? '退出选择' : '批量操作',
+            onPressed: _toggleSelectionMode,
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             tooltip: '设置',
             onPressed: _openSettings,
@@ -276,21 +484,7 @@ class _HomePageState extends State<HomePage> {
             child: ValueListenableBuilder<List<LaunchItem>>(
               valueListenable: _itemService.items,
               builder: (_, list, _) {
-                // 按分组筛选
-                var filtered = list;
-                if (_selectedGroupId != null) {
-                  filtered = list
-                      .where((item) => item.groupId == _selectedGroupId)
-                      .toList();
-                }
-                // 按搜索词筛选
-                if (_searchQuery.isNotEmpty) {
-                  filtered = filtered
-                      .where((item) =>
-                          item.name.toLowerCase().contains(_searchQuery) ||
-                          item.targetPath.toLowerCase().contains(_searchQuery))
-                      .toList();
-                }
+                final filtered = _getFilteredList(list);
 
                 if (filtered.isEmpty) {
                   return Center(
@@ -324,9 +518,14 @@ class _HomePageState extends State<HomePage> {
                       groupName: _selectedGroupId == null
                           ? _getGroupName(filtered[i].groupId)
                           : null,
+                      selectMode: _selectionMode,
+                      isSelected: _selectedIds.contains(filtered[i].id),
+                      onSelect: (_) => _toggleItemSelection(filtered[i].id),
                     ),
                     onReorderItem: (oldIndex, newIndex) {
-                      _itemService.reorderItem(oldIndex, newIndex);
+                      if (!_selectionMode) {
+                        _itemService.reorderItem(oldIndex, newIndex);
+                      }
                     },
                   );
                 }
@@ -340,14 +539,20 @@ class _HomePageState extends State<HomePage> {
                     groupName: _selectedGroupId == null
                         ? _getGroupName(filtered[i].groupId)
                         : null,
+                    selectMode: _selectionMode,
+                    isSelected: _selectedIds.contains(filtered[i].id),
+                    onSelect: (_) => _toggleItemSelection(filtered[i].id),
                   ),
                 );
               },
             ),
           ),
+          if (_selectionMode) _buildBatchActionBar(),
         ],
       ),
-      floatingActionButton: Column(
+      floatingActionButton: _selectionMode
+          ? null
+          : Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           FloatingActionButton.small(

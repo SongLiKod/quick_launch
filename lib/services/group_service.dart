@@ -83,6 +83,18 @@ class GroupService {
     ItemService().notifyItemsChanged();
   }
 
+  /// 批量移动启动项到指定分组
+  Future<void> moveItemsToGroup(List<String> itemIds, String? groupId) async {
+    final idSet = itemIds.toSet();
+    final items = ItemService().items.value;
+    for (int i = 0; i < items.length; i++) {
+      if (idSet.contains(items[i].id)) {
+        items[i].groupId = groupId;
+      }
+    }
+    ItemService().notifyItemsChanged();
+  }
+
   String? getGroupName(String? groupId) {
     if (groupId == null) return null;
     final idx = groups.value.indexWhere((g) => g.id == groupId);
