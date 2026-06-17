@@ -10,6 +10,9 @@ class ItemTile extends StatelessWidget {
   final int? index;
   final bool isGridMode;
   final String? groupName;
+  final bool selectMode;
+  final bool isSelected;
+  final ValueChanged<bool>? onSelect;
 
   const ItemTile({
     super.key,
@@ -17,6 +20,9 @@ class ItemTile extends StatelessWidget {
     this.index,
     this.isGridMode = false,
     this.groupName,
+    this.selectMode = false,
+    this.isSelected = false,
+    this.onSelect,
   });
 
   void _onLaunch(BuildContext context) async {
@@ -92,7 +98,12 @@ class ItemTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            if (index != null)
+            if (selectMode)
+              Checkbox(
+                value: isSelected,
+                onChanged: (v) => onSelect?.call(v ?? false),
+              ),
+            if (!selectMode && index != null)
               ReorderableDragStartListener(
                 index: index!,
                 child: const Padding(
@@ -146,21 +157,23 @@ class ItemTile extends StatelessWidget {
               _buildHotkeyBadge(),
               const SizedBox(width: 8),
             ],
-            IconButton(
-              icon: const Icon(Icons.play_arrow, color: Colors.green),
-              tooltip: '启动',
-              onPressed: () => _onLaunch(context),
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: '编辑',
-              onPressed: () => _onEdit(context),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: '删除',
-              onPressed: () => _onDelete(context),
-            ),
+            if (!selectMode) ...[
+              IconButton(
+                icon: const Icon(Icons.play_arrow, color: Colors.green),
+                tooltip: '启动',
+                onPressed: () => _onLaunch(context),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: '编辑',
+                onPressed: () => _onEdit(context),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                tooltip: '删除',
+                onPressed: () => _onDelete(context),
+              ),
+            ],
           ],
         ),
       ),
@@ -172,11 +185,20 @@ class ItemTile extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => _onLaunch(context),
+        onTap: selectMode
+            ? () => onSelect?.call(!isSelected)
+            : () => _onLaunch(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           child: Row(
             children: [
+              if (selectMode)
+                Checkbox(
+                  value: isSelected,
+                  onChanged: (v) => onSelect?.call(v ?? false),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               _buildIcon(size: 20),
               const SizedBox(width: 8),
               Expanded(

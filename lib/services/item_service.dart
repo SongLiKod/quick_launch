@@ -56,6 +56,14 @@ class ItemService {
     await _save();
   }
 
+  /// 批量删除启动项
+  Future<void> removeItems(List<String> ids) async {
+    final idSet = ids.toSet();
+    final list = items.value.where((e) => !idSet.contains(e.id)).toList();
+    items.value = list;
+    await _save();
+  }
+
   Future<void> updateItem(LaunchItem item) async {
     final list = items.value.map((e) => e.id == item.id ? item : e).toList();
     items.value = list;
