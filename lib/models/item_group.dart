@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 class ItemGroup {
   final String id;
   String name;
@@ -17,6 +19,8 @@ class ItemGroup {
 
   bool get hasGroupHotkey =>
       groupHotkeyModifiers != null && groupHotkeyVirtualKey != null;
+
+  Color get color => Color(colorValue);
 
   Map<String, dynamic> toJson() => {
         'id': id,

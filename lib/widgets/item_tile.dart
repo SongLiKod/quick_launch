@@ -10,6 +10,7 @@ class ItemTile extends StatefulWidget {
   final int? index;
   final bool isGridMode;
   final String? groupName;
+  final Color? groupColor;
   final bool selectMode;
   final bool isSelected;
   final ValueChanged<bool>? onSelect;
@@ -20,6 +21,7 @@ class ItemTile extends StatefulWidget {
     this.index,
     this.isGridMode = false,
     this.groupName,
+    this.groupColor,
     this.selectMode = false,
     this.isSelected = false,
     this.onSelect,
@@ -175,113 +177,125 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
               builder: (_, borderColor, child) {
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  clipBehavior: Clip.antiAlias,
                   shape: borderColor != null
                       ? RoundedRectangleBorder(
                           side: BorderSide(color: borderColor, width: 2),
                           borderRadius: BorderRadius.circular(8),
                         )
                       : null,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Row(
-                      children: [
-                        if (widget.selectMode)
-                          Checkbox(
-                            value: widget.isSelected,
-                            onChanged: (v) => widget.onSelect?.call(v ?? false),
-                          ),
-                        if (!widget.selectMode && widget.index != null)
-                          ReorderableDragStartListener(
-                            index: widget.index!,
-                            child: const Padding(
-                              padding: EdgeInsets.only(right: 4),
-                              child: Icon(Icons.drag_handle, color: Colors.grey),
-                            ),
-                          ),
-                        _buildIcon(),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    children: [
+                      if (widget.groupColor != null)
+                        Container(
+                          width: 4,
+                          color: widget.groupColor,
+                        ),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          child: Row(
                             children: [
-                              Row(
-                                children: [
-                                  _buildTypeLabel(),
-                                  if (_isStale()) ...[
-                                    const SizedBox(width: 4),
-                                    _buildStaleBadge(),
-                                  ],
-                                  if (widget.groupName != null) ...[
-                                    const SizedBox(width: 4),
-                                    _buildGroupBadge(),
-                                  ],
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      widget.item.name,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                widget.item.targetPath,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
+                              if (widget.selectMode)
+                                Checkbox(
+                                  value: widget.isSelected,
+                                  onChanged: (v) => widget.onSelect?.call(v ?? false),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              if (!widget.selectMode && widget.index != null)
+                                ReorderableDragStartListener(
+                                  index: widget.index!,
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(right: 4),
+                                    child: Icon(Icons.drag_handle, color: Colors.grey),
+                                  ),
+                                ),
+                              _buildIcon(),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        _buildTypeLabel(),
+                                        if (_isStale()) ...[
+                                          const SizedBox(width: 4),
+                                          _buildStaleBadge(),
+                                        ],
+                                        if (widget.groupName != null) ...[
+                                          const SizedBox(width: 4),
+                                          _buildGroupBadge(),
+                                        ],
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            widget.item.name,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.item.targetPath,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (widget.item.aliases.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 4,
+                                        runSpacing: 2,
+                                        children: widget.item.aliases.map((a) => Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: Colors.purple.withValues(alpha: 0.08),
+                                            borderRadius: BorderRadius.circular(3),
+                                            border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
+                                          ),
+                                          child: Text(
+                                            a,
+                                            style: const TextStyle(fontSize: 10, color: Colors.purple, height: 1.3),
+                                          ),
+                                        )).toList(),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
-                              if (widget.item.aliases.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 4,
-                                  runSpacing: 2,
-                                  children: widget.item.aliases.map((a) => Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: Colors.purple.withValues(alpha: 0.08),
-                                      borderRadius: BorderRadius.circular(3),
-                                      border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
-                                    ),
-                                    child: Text(
-                                      a,
-                                      style: const TextStyle(fontSize: 10, color: Colors.purple, height: 1.3),
-                                    ),
-                                  )).toList(),
+                              if (widget.item.hotkeyVirtualKey != null) ...[
+                                _buildHotkeyBadge(),
+                                const SizedBox(width: 8),
+                              ],
+                              if (!widget.selectMode) ...[
+                                IconButton(
+                                  icon: const Icon(Icons.play_arrow, color: Colors.green),
+                                  tooltip: '启动',
+                                  onPressed: () => _onLaunch(context),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined),
+                                  tooltip: '编辑',
+                                  onPressed: () => _onEdit(context),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                  tooltip: '删除',
+                                  onPressed: () => _onDelete(context),
                                 ),
                               ],
                             ],
                           ),
                         ),
-                        if (widget.item.hotkeyVirtualKey != null) ...[
-                          _buildHotkeyBadge(),
-                          const SizedBox(width: 8),
-                        ],
-                        if (!widget.selectMode) ...[
-                          IconButton(
-                            icon: const Icon(Icons.play_arrow, color: Colors.green),
-                            tooltip: '启动',
-                            onPressed: () => _onLaunch(context),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined),
-                            tooltip: '编辑',
-                            onPressed: () => _onEdit(context),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                            tooltip: '删除',
-                            onPressed: () => _onDelete(context),
-                          ),
-                        ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -316,93 +330,103 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                     onTap: widget.selectMode
                         ? () => widget.onSelect?.call(!widget.isSelected)
                         : () => _onLaunch(context),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      child: Row(
-                        children: [
-                          if (widget.selectMode)
-                            Checkbox(
-                              value: widget.isSelected,
-                              onChanged: (v) => widget.onSelect?.call(v ?? false),
-                              visualDensity: VisualDensity.compact,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          _buildIcon(size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.item.name,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Row(
-                                  children: [
-                                    _buildTypeLabel(),
-                                    if (_isStale()) ...[
-                                      const SizedBox(width: 4),
-                                      _buildStaleBadge(),
-                                    ],
-                                    if (widget.groupName != null) ...[
-                                      const SizedBox(width: 4),
-                                      _buildGroupBadge(),
-                                    ],
-                                    if (widget.item.hotkeyVirtualKey != null) ...[
-                                      const SizedBox(width: 4),
-                                      _buildHotkeyBadge(),
-                                    ],
-                                  ],
-                                ),
-                              ],
-                            ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.groupColor != null)
+                          Container(
+                            height: 3,
+                            color: widget.groupColor,
                           ),
-                          const SizedBox(width: 4),
-                          _buildMiniIconButton(
-                            icon: Icons.play_arrow,
-                            color: Colors.green,
-                            tooltip: '启动',
-                            onPressed: () => _onLaunch(context),
-                          ),
-                          PopupMenuButton<String>(
-                            icon: const Icon(Icons.more_horiz, size: 18),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                            onSelected: (action) {
-                              if (action == 'edit') _onEdit(context);
-                              if (action == 'delete') _onDelete(context);
-                            },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          child: Row(
+                            children: [
+                              if (widget.selectMode)
+                                Checkbox(
+                                  value: widget.isSelected,
+                                  onChanged: (v) => widget.onSelect?.call(v ?? false),
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              _buildIcon(size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(Icons.edit_outlined, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('编辑'),
+                                    Text(
+                                      widget.item.name,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Row(
+                                      children: [
+                                        _buildTypeLabel(),
+                                        if (_isStale()) ...[
+                                          const SizedBox(width: 4),
+                                          _buildStaleBadge(),
+                                        ],
+                                        if (widget.groupName != null) ...[
+                                          const SizedBox(width: 4),
+                                          _buildGroupBadge(),
+                                        ],
+                                        if (widget.item.hotkeyVirtualKey != null) ...[
+                                          const SizedBox(width: 4),
+                                          _buildHotkeyBadge(),
+                                        ],
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                    SizedBox(width: 8),
-                                    Text('删除', style: TextStyle(color: Colors.red)),
-                                  ],
-                                ),
+                              const SizedBox(width: 4),
+                              _buildMiniIconButton(
+                                icon: Icons.play_arrow,
+                                color: Colors.green,
+                                tooltip: '启动',
+                                onPressed: () => _onLaunch(context),
+                              ),
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_horiz, size: 18),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                onSelected: (action) {
+                                  if (action == 'edit') _onEdit(context);
+                                  if (action == 'delete') _onDelete(context);
+                                },
+                                itemBuilder: (_) => [
+                                  const PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit_outlined, size: 18),
+                                        SizedBox(width: 8),
+                                        Text('编辑'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                        SizedBox(width: 8),
+                                        Text('删除', style: TextStyle(color: Colors.red)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 );
