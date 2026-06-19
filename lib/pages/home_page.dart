@@ -329,6 +329,12 @@ class _HomePageState extends State<HomePage> {
     return group?.name;
   }
 
+  Color? _getGroupColor(String? groupId) {
+    if (groupId == null) return null;
+    final group = _groupService.groups.value.where((g) => g.id == groupId).firstOrNull;
+    return group?.color;
+  }
+
   Widget _buildBatchActionBar() {
     final theme = Theme.of(context);
     return Container(
@@ -400,6 +406,9 @@ class _HomePageState extends State<HomePage> {
                       isGridMode: true,
                       groupName: _selectedGroupId == null
                           ? _getGroupName(row[i].groupId)
+                          : null,
+                      groupColor: _selectedGroupId == null
+                          ? _getGroupColor(row[i].groupId)
                           : null,
                       selectMode: _selectionMode,
                       isSelected: _selectedIds.contains(row[i].id),
@@ -520,6 +529,9 @@ class _HomePageState extends State<HomePage> {
                       groupName: _selectedGroupId == null
                           ? _getGroupName(filtered[i].groupId)
                           : null,
+                      groupColor: _selectedGroupId == null
+                          ? _getGroupColor(filtered[i].groupId)
+                          : null,
                       selectMode: _selectionMode,
                       isSelected: _selectedIds.contains(filtered[i].id),
                       onSelect: (_) => _toggleItemSelection(filtered[i].id),
@@ -540,6 +552,9 @@ class _HomePageState extends State<HomePage> {
                     item: filtered[i],
                     groupName: _selectedGroupId == null
                         ? _getGroupName(filtered[i].groupId)
+                        : null,
+                    groupColor: _selectedGroupId == null
+                        ? _getGroupColor(filtered[i].groupId)
                         : null,
                     selectMode: _selectionMode,
                     isSelected: _selectedIds.contains(filtered[i].id),
