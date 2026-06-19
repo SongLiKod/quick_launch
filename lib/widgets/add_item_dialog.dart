@@ -10,7 +10,10 @@ import '../utils/path_util.dart';
 class AddItemDialog extends StatefulWidget {
   final LaunchItem? item;
 
-  const AddItemDialog({super.key, this.item});
+  /// 预填的路径（来自右键菜单），用于在非编辑模式下自动填入路径和名称
+  final String? initialFile;
+
+  const AddItemDialog({super.key, this.item, this.initialFile});
 
   @override
   State<AddItemDialog> createState() => _AddItemDialogState();
@@ -36,29 +39,57 @@ class _AddItemDialogState extends State<AddItemDialog> {
   void initState() {
     super.initState();
     final existing = widget.item;
-    _nameController = TextEditingController(text: existing?.name ?? '');
-    _pathController = TextEditingController(text: existing?.targetPath ?? '');
-    _runAsAdmin = existing?.runAsAdmin ?? false;
-    _hotkeyModifiers = existing?.hotkeyModifiers;
-    _hotkeyVirtualKey = existing?.hotkeyVirtualKey;
-    _detectedType = existing?.type ?? ItemType.file;
-    _mode = existing?.type == ItemType.command
-        ? 'command'
-        : existing?.type == ItemType.link
-            ? 'link'
-            : 'file';
-    _groupId = existing?.groupId;
-    _aliases = existing?.aliases ?? [];
+    final initialFile = widget.initialFile;
 
-    if (existing?.hotkeyVirtualKey != null) {
-      final mods = <String>[];
-      if (existing!.hotkeyModifiers! & 0x01 != 0) mods.add('Alt');
-      if (existing.hotkeyModifiers! & 0x02 != 0) mods.add('Ctrl');
-      if (existing.hotkeyModifiers! & 0x04 != 0) mods.add('Shift');
-      if (existing.hotkeyModifiers! & 0x08 != 0) mods.add('Win');
-      final keyName = _virtualKeyName(existing.hotkeyVirtualKey!);
-      _hotkeyLabel = '${mods.join('+')}+$keyName';
+    if (existing != null) {
+      _nameController = TextEditingController(text: existing.name);
+      _pathController = TextEditingController(text: existing.targetPath);
+      _runAsAdmin = existing.runAsAdmin;
+      _hotkeyModifiers = existing.hotkeyModifiers;
+      _hotkeyVirtualKey = existing.hotkeyVirtualKey;
+      _detectedType = existing.type;
+      _mode = existing.type == ItemType.command
+          ? 'command'
+          : existing.type == ItemType.link
+          ? 'link'
+          : 'file';
+      _groupId = existing.groupId;
+      _aliases = existing.aliases;
+
+      if (existing.hotkeyVirtualKey != null) {
+        final mods = <String>[];
+        if ((existing.hotkeyModifiers ?? 0) & 0x01 != 0) mods.add('Alt');
+        if ((existing.hotkeyModifiers ?? 0) & 0x02 != 0) mods.add('Ctrl');
+        if ((existing.hotkeyModifiers ?? 0) & 0x04 != 0) mods.add('Shift');
+        if ((existing.hotkeyModifiers ?? 0) & 0x08 != 0) mods.add('Win');
+        final keyName = _virtualKeyName(existing.hotkeyVirtualKey!);
+        _hotkeyLabel = '${mods.join('+')}+$keyName';
+      } else {
+        _hotkeyLabel = '点击录制';
+      }
+    } else if (initialFile != null && initialFile.isNotEmpty) {
+      _nameController = TextEditingController(
+        text: PathUtil.getFileName(initialFile),
+      );
+      _pathController = TextEditingController(text: initialFile);
+      _runAsAdmin = false;
+      _hotkeyModifiers = null;
+      _hotkeyVirtualKey = null;
+      _detectedType = PathUtil.detectType(initialFile);
+      _mode = 'file';
+      _groupId = null;
+      _aliases = [];
+      _hotkeyLabel = '点击录制';
     } else {
+      _nameController = TextEditingController();
+      _pathController = TextEditingController();
+      _runAsAdmin = false;
+      _hotkeyModifiers = null;
+      _hotkeyVirtualKey = null;
+      _detectedType = ItemType.file;
+      _mode = 'file';
+      _groupId = null;
+      _aliases = [];
       _hotkeyLabel = '点击录制';
     }
   }
@@ -111,8 +142,10 @@ class _AddItemDialogState extends State<AddItemDialog> {
           children: [
             const Text('输入快捷键组合，例如：'),
             const SizedBox(height: 8),
-            Text('  Ctrl+Alt+A\n  Ctrl+Shift+F5\n  Win+E\n  Alt+Space',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            Text(
+              '  Ctrl+Alt+A\n  Ctrl+Shift+F5\n  Win+E\n  Alt+Space',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
@@ -147,7 +180,8 @@ class _AddItemDialogState extends State<AddItemDialog> {
 
               // 冲突检测
               final conflict = HotkeyService().findConflict(
-                modifiers, virtualKey,
+                modifiers,
+                virtualKey,
                 excludeId: widget.item?.id,
               );
               if (conflict != null) {
@@ -195,7 +229,15 @@ class _AddItemDialogState extends State<AddItemDialog> {
 
     int modifiers = 0;
     String? keyPart;
-    final modSet = <String>{'ctrl', 'control', 'alt', 'shift', 'win', 'windows', 'meta'};
+    final modSet = <String>{
+      'ctrl',
+      'control',
+      'alt',
+      'shift',
+      'win',
+      'windows',
+      'meta',
+    };
 
     for (int i = 0; i < parts.length; i++) {
       final lower = parts[i].toLowerCase();
@@ -232,28 +274,72 @@ class _AddItemDialogState extends State<AddItemDialog> {
 
   int? _textToVk(String key) {
     final upper = key.toUpperCase();
-    if (upper.length == 1 && upper.codeUnitAt(0) >= 0x41 && upper.codeUnitAt(0) <= 0x5A) {
+    if (upper.length == 1 &&
+        upper.codeUnitAt(0) >= 0x41 &&
+        upper.codeUnitAt(0) <= 0x5A) {
       return upper.codeUnitAt(0);
     }
-    if (upper.length == 1 && upper.codeUnitAt(0) >= 0x30 && upper.codeUnitAt(0) <= 0x39) {
+    if (upper.length == 1 &&
+        upper.codeUnitAt(0) >= 0x30 &&
+        upper.codeUnitAt(0) <= 0x39) {
       return upper.codeUnitAt(0);
     }
     const map = <String, int>{
-      'F1': 0x70, 'F2': 0x71, 'F3': 0x72, 'F4': 0x73,
-      'F5': 0x74, 'F6': 0x75, 'F7': 0x76, 'F8': 0x77,
-      'F9': 0x78, 'F10': 0x79, 'F11': 0x7A, 'F12': 0x7B,
-      'SPACE': 0x20, 'ENTER': 0x0D, 'RETURN': 0x0D, 'TAB': 0x09,
-      'ESC': 0x1B, 'ESCAPE': 0x1B,
-      'BACKSPACE': 0x08, 'DELETE': 0x2E, 'DEL': 0x2E, 'INSERT': 0x2D, 'INS': 0x2D,
-      'HOME': 0x24, 'END': 0x23,
-      'PAGEUP': 0x21, 'PGUP': 0x21, 'PAGEDOWN': 0x22, 'PGDN': 0x22,
-      'LEFT': 0x25, 'RIGHT': 0x27, 'UP': 0x26, 'DOWN': 0x28,
-      'MINUS': 0xBD, '-': 0xBD, 'EQUALS': 0xBB, '=': 0xBB,
-      'LBRACKET': 0xDB, '[': 0xDB, 'RBRACKET': 0xDD, ']': 0xDD,
-      'BACKSLASH': 0xDC, '\\': 0xDC,
-      'SEMICOLON': 0xBA, ';': 0xBA, 'QUOTE': 0xDE, "'": 0xDE,
-      'BACKTICK': 0xC0, '`': 0xC0,
-      'COMMA': 0xBC, ',': 0xBC, 'PERIOD': 0xBE, '.': 0xBE, 'SLASH': 0xBF, '/': 0xBF,
+      'F1': 0x70,
+      'F2': 0x71,
+      'F3': 0x72,
+      'F4': 0x73,
+      'F5': 0x74,
+      'F6': 0x75,
+      'F7': 0x76,
+      'F8': 0x77,
+      'F9': 0x78,
+      'F10': 0x79,
+      'F11': 0x7A,
+      'F12': 0x7B,
+      'SPACE': 0x20,
+      'ENTER': 0x0D,
+      'RETURN': 0x0D,
+      'TAB': 0x09,
+      'ESC': 0x1B,
+      'ESCAPE': 0x1B,
+      'BACKSPACE': 0x08,
+      'DELETE': 0x2E,
+      'DEL': 0x2E,
+      'INSERT': 0x2D,
+      'INS': 0x2D,
+      'HOME': 0x24,
+      'END': 0x23,
+      'PAGEUP': 0x21,
+      'PGUP': 0x21,
+      'PAGEDOWN': 0x22,
+      'PGDN': 0x22,
+      'LEFT': 0x25,
+      'RIGHT': 0x27,
+      'UP': 0x26,
+      'DOWN': 0x28,
+      'MINUS': 0xBD,
+      '-': 0xBD,
+      'EQUALS': 0xBB,
+      '=': 0xBB,
+      'LBRACKET': 0xDB,
+      '[': 0xDB,
+      'RBRACKET': 0xDD,
+      ']': 0xDD,
+      'BACKSLASH': 0xDC,
+      '\\': 0xDC,
+      'SEMICOLON': 0xBA,
+      ';': 0xBA,
+      'QUOTE': 0xDE,
+      "'": 0xDE,
+      'BACKTICK': 0xC0,
+      '`': 0xC0,
+      'COMMA': 0xBC,
+      ',': 0xBC,
+      'PERIOD': 0xBE,
+      '.': 0xBE,
+      'SLASH': 0xBF,
+      '/': 0xBF,
     };
     return map[upper];
   }
@@ -329,22 +415,23 @@ class _AddItemDialogState extends State<AddItemDialog> {
 
   void _submit() {
     if (_nameController.text.isEmpty || _pathController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入名称和路径')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入名称和路径')));
       return;
     }
 
     // 最终提交时再次检查冲突（防止冲突检测后用户改了其他项）
     if (_hotkeyVirtualKey != null) {
       final conflict = HotkeyService().findConflict(
-        _hotkeyModifiers, _hotkeyVirtualKey,
+        _hotkeyModifiers,
+        _hotkeyVirtualKey,
         excludeId: widget.item?.id,
       );
       if (conflict != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('快捷键与 "$conflict" 冲突，请修改后再保存')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('快捷键与 "$conflict" 冲突，请修改后再保存')));
         return;
       }
     }
@@ -356,8 +443,8 @@ class _AddItemDialogState extends State<AddItemDialog> {
       type: _mode == 'command'
           ? ItemType.command
           : _mode == 'link'
-              ? ItemType.link
-              : _detectedType,
+          ? ItemType.link
+          : _detectedType,
       hotkeyModifiers: _hotkeyModifiers,
       hotkeyVirtualKey: _hotkeyVirtualKey,
       runAsAdmin: _runAsAdmin,
@@ -419,13 +506,13 @@ class _AddItemDialogState extends State<AddItemDialog> {
                 labelText: _mode == 'command'
                     ? '命令'
                     : _mode == 'link'
-                        ? '链接'
-                        : '路径',
+                    ? '链接'
+                    : '路径',
                 hintText: _mode == 'command'
                     ? '输入命令 (如: ipconfig /all)'
                     : _mode == 'link'
-                        ? '输入链接 (如: https://www.baidu.com)'
-                        : '选择文件或文件夹',
+                    ? '输入链接 (如: https://www.baidu.com)'
+                    : '选择文件或文件夹',
                 border: const OutlineInputBorder(),
                 suffixIcon: _mode == 'file'
                     ? Row(
@@ -456,7 +543,9 @@ class _AddItemDialogState extends State<AddItemDialog> {
                     if (selected) {
                       setState(() {
                         _mode = 'file';
-                        _detectedType = PathUtil.detectType(_pathController.text);
+                        _detectedType = PathUtil.detectType(
+                          _pathController.text,
+                        );
                       });
                     }
                   },
@@ -520,7 +609,10 @@ class _AddItemDialogState extends State<AddItemDialog> {
             ),
             if (_conflictHint != null) ...[
               const SizedBox(height: 4),
-              Text(_conflictHint!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+              Text(
+                _conflictHint!,
+                style: const TextStyle(color: Colors.red, fontSize: 12),
+              ),
             ],
             const SizedBox(height: 8),
             // 分组选择
@@ -536,37 +628,45 @@ class _AddItemDialogState extends State<AddItemDialog> {
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           isDense: true,
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String?>(
                             value: _groupId,
                             isExpanded: true,
-                            hint: const Text('无分组',
-                                style: TextStyle(fontSize: 13)),
+                            hint: const Text(
+                              '无分组',
+                              style: TextStyle(fontSize: 13),
+                            ),
                             items: [
                               const DropdownMenuItem(
                                 value: null,
-                                child: Text('无分组',
-                                    style: TextStyle(fontSize: 13)),
+                                child: Text(
+                                  '无分组',
+                                  style: TextStyle(fontSize: 13),
+                                ),
                               ),
-                              ...groups.map((g) => DropdownMenuItem(
-                                    value: g.id,
-                                    child: Row(
-                                      children: [
-                                        CircleAvatar(
-                                          backgroundColor:
-                                              Color(g.colorValue),
-                                          radius: 6,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(g.name,
-                                            style:
-                                                const TextStyle(fontSize: 13)),
-                                      ],
-                                    ),
-                                  )),
+                              ...groups.map(
+                                (g) => DropdownMenuItem(
+                                  value: g.id,
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: Color(g.colorValue),
+                                        radius: 6,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        g.name,
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ],
                             onChanged: (v) => setState(() => _groupId = v),
                           ),
@@ -596,13 +696,15 @@ class _AddItemDialogState extends State<AddItemDialog> {
               spacing: 6,
               runSpacing: 4,
               children: [
-                ..._aliases.map((alias) => Chip(
-                      label: Text(alias, style: const TextStyle(fontSize: 12)),
-                      deleteIcon: const Icon(Icons.close, size: 14),
-                      onDeleted: () => _removeAlias(alias),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    )),
+                ..._aliases.map(
+                  (alias) => Chip(
+                    label: Text(alias, style: const TextStyle(fontSize: 12)),
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () => _removeAlias(alias),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
                 SizedBox(
                   width: 140,
                   height: 32,
@@ -611,15 +713,19 @@ class _AddItemDialogState extends State<AddItemDialog> {
                     decoration: InputDecoration(
                       hintText: '添加别名...',
                       isDense: true,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.add, size: 16),
                         onPressed: _addAlias,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
-                            minWidth: 24, minHeight: 24),
+                          minWidth: 24,
+                          minHeight: 24,
+                        ),
                       ),
                     ),
                     style: const TextStyle(fontSize: 12),
@@ -636,10 +742,7 @@ class _AddItemDialogState extends State<AddItemDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(_isEditing ? '保存' : '添加'),
-        ),
+        FilledButton(onPressed: _submit, child: Text(_isEditing ? '保存' : '添加')),
       ],
     );
   }

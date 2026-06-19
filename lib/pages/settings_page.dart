@@ -304,6 +304,18 @@ class SettingsBody extends StatelessWidget {
         _searchHotkeyTile(context, service),
         const Divider(height: 1),
 
+        // ===== 系统集成 =====
+        _sectionHeader(context, '系统集成'),
+        _switchTile(
+          context,
+          icon: Icons.mouse,
+          title: '启用右键菜单',
+          subtitle: '在文件/文件夹右键菜单中显示"添加到快速启动"',
+          valueNotifier: service.contextMenuEnabled,
+          onChanged: (v) => service.setContextMenuEnabled(v),
+        ),
+        const Divider(height: 1),
+
         // ===== 列表管理 =====
         _sectionHeader(context, '列表管理'),
         _sortModeTile(context, service),

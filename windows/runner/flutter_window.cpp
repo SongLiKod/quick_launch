@@ -75,6 +75,14 @@ bool FlutterWindow::OnCreate() {
           "quick_launch/settings",
           &flutter::StandardMethodCodec::GetInstance());
 
+  // Create the method channel for forwarding file paths (from WM_COPYDATA
+  // or command-line --add-file) to the Dart side.
+  files_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "quick_launch/files",
+          &flutter::StandardMethodCodec::GetInstance());
+
   settings_channel_->SetMethodCallHandler(
       [this](const flutter::MethodCall<flutter::EncodableValue>& call,
              std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
@@ -185,6 +193,13 @@ bool FlutterWindow::OnCreate() {
     if (!hide_on_startup_) {
       this->Show();
     }
+    // Forward any pending file path from command-line args.
+    if (!pending_file_path_.empty() && files_channel_ != nullptr) {
+      files_channel_->InvokeMethod(
+          "onFileReceived",
+          std::make_unique<flutter::EncodableValue>(
+              flutter::EncodableValue(pending_file_path_)));
+    }
   });
 
   // Flutter can complete the first frame before the "show window" callback is
@@ -227,6 +242,20 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
+    case WM_COPYDATA: {
+      // Forward file paths from another instance (right-click → QuickLaunch).
+      if (files_channel_ != nullptr) {
+        auto* cds = reinterpret_cast<COPYDATASTRUCT*>(lparam);
+        if (cds != nullptr && cds->lpData != nullptr) {
+          const char* path = static_cast<const char*>(cds->lpData);
+          files_channel_->InvokeMethod(
+              "onFileReceived",
+              std::make_unique<flutter::EncodableValue>(
+                  flutter::EncodableValue(std::string(path))));
+        }
+      }
+      return 0;
+    }
     case WM_HOTKEY:
       // Forward the hotkey ID (wParam) to the Dart side via MethodChannel.
       if (hotkey_channel_ != nullptr) {
