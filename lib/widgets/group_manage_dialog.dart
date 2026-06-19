@@ -28,8 +28,10 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(
-                  child: Text('暂无分组，点击下方按钮添加',
-                      style: TextStyle(color: Colors.grey)),
+                  child: Text(
+                    '暂无分组，点击下方按钮添加',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ),
               );
             }
@@ -45,21 +47,25 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
                     backgroundColor: Color(group.colorValue),
                     radius: 14,
                     child: Text(
-                      group.name.isNotEmpty
-                          ? group.name[0].toUpperCase()
-                          : '?',
+                      group.name.isNotEmpty ? group.name[0].toUpperCase() : '?',
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold),
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   title: Text(group.name),
                   subtitle: group.hasGroupHotkey
                       ? Text(
                           formatHotkeyLabel(
-                              group.groupHotkeyModifiers, group.groupHotkeyVirtualKey),
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            group.groupHotkeyModifiers,
+                            group.groupHotkeyVirtualKey,
+                          ),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
                         )
                       : null,
                   trailing: Row(
@@ -67,7 +73,9 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
                     children: [
                       IconButton(
                         icon: Icon(
-                          group.hasGroupHotkey ? Icons.keyboard : Icons.keyboard_outlined,
+                          group.hasGroupHotkey
+                              ? Icons.keyboard
+                              : Icons.keyboard_outlined,
                           size: 18,
                           color: group.hasGroupHotkey ? Colors.blue : null,
                         ),
@@ -80,8 +88,11 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
                         onPressed: () => _editGroup(context, group),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline,
-                            size: 18, color: Colors.red),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.red,
+                        ),
                         tooltip: '删除',
                         onPressed: () => _deleteGroup(context, group),
                       ),
@@ -124,15 +135,143 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
   }
 
   void _editGroup(BuildContext context, ItemGroup group) {
-    _showNameDialog(
-      context,
-      title: '重命名分组',
-      initial: group.name,
-      onConfirm: (name) async {
-        if (name.trim().isEmpty) return;
-        group.name = name.trim();
-        await _service.updateGroup(group);
-      },
+    final nameController = TextEditingController(text: group.name);
+    int selectedColor = group.colorValue;
+    bool useCustomColor = false;
+    Color customColor = Color(group.colorValue);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('编辑分组'),
+          content: SizedBox(
+            width: 320,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: '分组名称',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '选择颜色',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ...GroupService.presetColors.map((colorValue) {
+                      final isSelected =
+                          !useCustomColor && selectedColor == colorValue;
+                      return GestureDetector(
+                        onTap: () {
+                          setDialogState(() {
+                            selectedColor = colorValue;
+                            useCustomColor = false;
+                          });
+                        },
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Color(colorValue),
+                            borderRadius: BorderRadius.circular(6),
+                            border: isSelected
+                                ? Border.all(color: Colors.white, width: 3)
+                                : null,
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: Color(colorValue),
+                                      blurRadius: 8,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: isSelected
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 18,
+                                )
+                              : null,
+                        ),
+                      );
+                    }),
+                    // 自定义颜色按钮
+                    GestureDetector(
+                      onTap: () async {
+                        final picked = await showDialog<Color>(
+                          context: ctx,
+                          builder: (colorCtx) => _SimpleColorPicker(
+                            initialColor: useCustomColor
+                                ? customColor
+                                : Color(selectedColor),
+                          ),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            customColor = picked;
+                            selectedColor = picked.toARGB32();
+                            useCustomColor = true;
+                          });
+                        }
+                      },
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: useCustomColor
+                              ? customColor
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(6),
+                          border: useCustomColor
+                              ? Border.all(color: Colors.white, width: 3)
+                              : Border.all(color: Colors.grey[400]!),
+                          boxShadow: useCustomColor
+                              ? [BoxShadow(color: customColor, blurRadius: 8)]
+                              : null,
+                        ),
+                        child: const Icon(
+                          Icons.colorize,
+                          size: 18,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                if (name.isEmpty) return;
+                group.name = name;
+                group.colorValue = selectedColor;
+                await _service.updateGroup(group);
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -159,7 +298,9 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
                 labelText: '快捷键',
                 hintText: group.hasGroupHotkey
                     ? formatHotkeyLabel(
-                        group.groupHotkeyModifiers, group.groupHotkeyVirtualKey)
+                        group.groupHotkeyModifiers,
+                        group.groupHotkeyVirtualKey,
+                      )
                     : 'Ctrl+Shift+1',
                 border: const OutlineInputBorder(),
               ),
@@ -180,9 +321,9 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
                 await _service.updateGroup(group);
                 Navigator.of(ctx).pop();
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('已清除分组快捷键')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已清除分组快捷键')));
               },
               child: const Text('清除', style: TextStyle(color: Colors.red)),
             ),
@@ -201,7 +342,8 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
 
               // 检测冲突
               final conflict = HotkeyService().findGroupConflict(
-                modifiers, vk,
+                modifiers,
+                vk,
                 excludeGroupId: group.id,
               );
               if (conflict != null) {
@@ -298,13 +440,140 @@ class _GroupManageDialogState extends State<GroupManageDialog> {
   }
 
   int _nextColor() {
-    final used = _service.groups.value
-        .map((g) => g.colorValue)
-        .toSet();
+    final used = _service.groups.value.map((g) => g.colorValue).toSet();
     for (final c in GroupService.presetColors) {
       if (!used.contains(c)) return c;
     }
-    return GroupService.presetColors[
-        _service.groups.value.length % GroupService.presetColors.length];
+    return GroupService.presetColors[_service.groups.value.length %
+        GroupService.presetColors.length];
+  }
+}
+
+/// A simple color picker dialog with HSV-style sliders
+class _SimpleColorPicker extends StatefulWidget {
+  final Color initialColor;
+  const _SimpleColorPicker({required this.initialColor});
+
+  @override
+  State<_SimpleColorPicker> createState() => _SimpleColorPickerState();
+}
+
+class _SimpleColorPickerState extends State<_SimpleColorPicker> {
+  late double _hue, _saturation, _brightness;
+  late Color _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.initialColor;
+    final hsv = HSVColor.fromColor(_current);
+    _hue = hsv.hue;
+    _saturation = hsv.saturation;
+    _brightness = hsv.value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('自定义颜色'),
+      content: SizedBox(
+        width: 260,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Color preview
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: _current,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+                boxShadow: [
+                  BoxShadow(
+                    color: _current.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            // Hue slider
+            _buildSlider('色相', _hue, 360, (v) {
+              setState(() {
+                _hue = v;
+                _current = HSVColor.fromAHSV(
+                  1,
+                  _hue,
+                  _saturation,
+                  _brightness,
+                ).toColor();
+              });
+            }, _current),
+            const SizedBox(height: 8),
+            // Saturation slider
+            _buildSlider('饱和度', _saturation, 1, (v) {
+              setState(() {
+                _saturation = v;
+                _current = HSVColor.fromAHSV(
+                  1,
+                  _hue,
+                  _saturation,
+                  _brightness,
+                ).toColor();
+              });
+            }, _current),
+            const SizedBox(height: 8),
+            // Brightness slider
+            _buildSlider('亮度', _brightness, 1, (v) {
+              setState(() {
+                _brightness = v;
+                _current = HSVColor.fromAHSV(
+                  1,
+                  _hue,
+                  _saturation,
+                  _brightness,
+                ).toColor();
+              });
+            }, _current),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_current),
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSlider(
+    String label,
+    double value,
+    double max,
+    ValueChanged<double> onChanged,
+    Color trackColor,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12)),
+        const SizedBox(height: 4),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            trackHeight: 8,
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+            activeTrackColor: trackColor,
+            inactiveTrackColor: trackColor.withValues(alpha: 0.2),
+          ),
+          child: Slider(value: value, max: max, onChanged: onChanged),
+        ),
+      ],
+    );
   }
 }

@@ -117,14 +117,14 @@ class GroupService {
 
   static const List<int> presetColors = [
     0xFFE53935, // Red
-    0xFFFF7043, // Deep Orange
-    0xFFFFA726, // Orange
-    0xFFFDD835, // Yellow
-    0xFF66BB6A, // Green
-    0xFF26A69A, // Teal
     0xFF42A5F5, // Blue
+    0xFFFFA726, // Orange
     0xFF5C6BC0, // Indigo
+    0xFFFDD835, // Yellow
+    0xFF26A69A, // Teal
+    0xFFFF7043, // Deep Orange
     0xFF7E57C2, // Deep Purple
+    0xFF66BB6A, // Green
     0xFFAB47BC, // Purple
     0xFFEC407A, // Pink
     0xFF8D6E63, // Brown

@@ -310,15 +310,48 @@ class _HomePageState extends State<HomePage> {
     final selected = _selectedGroupId == groupId;
     return Padding(
       padding: const EdgeInsets.only(right: 6),
-      child: FilterChip(
-        label: Text(label, style: const TextStyle(fontSize: 12)),
-        selected: selected,
-        selectedColor: color?.withValues(alpha: 0.2),
-        checkmarkColor: color,
-        visualDensity: VisualDensity.compact,
-        onSelected: (_) {
-          setState(() => _selectedGroupId = groupId);
-        },
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedGroupId = groupId),
+        child: Container(
+          height: 30,
+          decoration: BoxDecoration(
+            color: selected
+                ? color?.withValues(alpha: 0.15)
+                : null,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected
+                  ? (color ?? Colors.grey).withValues(alpha: 0.4)
+                  : Colors.grey.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (color != null)
+                Container(
+                  width: 3,
+                  height: 18,
+                  margin: const EdgeInsets.only(left: 3),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w600 : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
