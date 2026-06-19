@@ -9,22 +9,26 @@ import 'settings_service.dart';
 /// 启动结果
 typedef LaunchResult = ({bool success, String? errorMessage});
 
-/// 进程信息（通过 tasklist 扫描获得）
-class ProcessInfo {
+/// 正在追踪的进程信息（通过 Process.start 持有真实句柄）
+class TrackedProcess {
+  final String itemId;
   final String itemName;
-  final String exeName;
-  final int pid;
-  final DateTime firstSeenAt;
+  final Process process;
+  final DateTime startTime;
 
-  ProcessInfo({
+  TrackedProcess({
+    required this.itemId,
     required this.itemName,
-    required this.exeName,
-    required this.pid,
-    required this.firstSeenAt,
+    required this.process,
+    required this.startTime,
   });
 
+  int get pid => process.pid;
+
+  Duration get runningDuration => DateTime.now().difference(startTime);
+
   String get runningDurationText {
-    final d = DateTime.now().difference(firstSeenAt);
+    final d = runningDuration;
     if (d.inHours > 0) {
       return '${d.inHours}h ${d.inMinutes % 60}m';
     } else if (d.inMinutes > 0) {
@@ -40,47 +44,36 @@ class LaunchService {
   factory LaunchService() => _instance;
   LaunchService._internal();
 
-  /// 当前正在运行的 exe 名集合（全小写），由 refreshRunningState() 更新
-  final ValueNotifier<Set<String>> runningExeNames =
-      ValueNotifier(<String>{});
+  /// 按 itemId 追踪的进程映射
+  final Map<String, TrackedProcess> _tracked = {};
 
-  /// 刷新 runningExeNames：快速扫描 tasklist，返回当前系统上所有正在运行的 exe 名
-  Future<void> refreshRunningState() async {
-    try {
-      final result = await Process.run('tasklist', ['/NH', '/FO', 'CSV']);
-      final exes = <String>{};
-      for (final line in result.stdout.toString().trim().split('\n')) {
-        final trimmed = line.trim();
-        if (trimmed.isEmpty) continue;
-        final parts = trimmed.split(',');
-        if (parts.isEmpty) continue;
-        final imageName = parts[0].replaceAll('"', '').trim().toLowerCase();
-        if (imageName.isNotEmpty) exes.add(imageName);
-      }
-      runningExeNames.value = exes;
-    } catch (_) {
-      // 失败时保留旧状态
-    }
+  /// 当前正在追踪的进程列表
+  final ValueNotifier<List<TrackedProcess>> runningProcesses =
+      ValueNotifier([]);
+
+  /// 检查某个启动项是否正在运行
+  bool isRunning(String itemId) => _tracked.containsKey(itemId);
+
+  /// 将进程加入追踪（自动在进程退出时清理）
+  void _track(LaunchItem item, Process process) {
+    final tp = TrackedProcess(
+      itemId: item.id,
+      itemName: item.name,
+      process: process,
+      startTime: DateTime.now(),
+    );
+    _tracked[item.id] = tp;
+    _notify();
+
+    // 进程退出时自动清理
+    process.exitCode.then((_) {
+      _tracked.remove(item.id);
+      _notify();
+    });
   }
 
-  /// 从 targetPath 提取 exe 文件名（去掉路径、参数和 .exe 后缀）
-  /// "C:\Program Files\Chrome\chrome.exe" → "chrome"
-  /// "mysqld --console" → "mysqld"
-  /// "notepad" → "notepad"
-  /// "D:\path\app.exe,0" → "app"
-  String _exeName(String targetPath) {
-    try {
-      // 取文件名（最后一段）
-      var name = targetPath.split(RegExp(r'[/\\]')).last;
-      // 去掉参数（空格后的内容）以及逗号后缀（如 ",0"）
-      name = name.split(RegExp(r'\s+')).first.split(',').first;
-      // 去掉 .exe 后缀（统一规范化）
-      if (name.endsWith('.exe')) name = name.substring(0, name.length - 4);
-      if (name.isEmpty) return targetPath;
-      return name;
-    } catch (_) {
-      return targetPath;
-    }
+  void _notify() {
+    runningProcesses.value = _tracked.values.toList();
   }
 
   /// 启动一个项目，返回结果并记录日志
@@ -88,13 +81,33 @@ class LaunchService {
     try {
       switch (item.type) {
         case ItemType.executable:
-        case ItemType.batScript:
-          await Process.run(
-            'start',
-            ['""', item.targetPath],
-            runInShell: true,
+          // 直接启动 exe — GUI 应用会正常显示窗口
+          final process = await Process.start(
+            item.targetPath,
+            [],
             workingDirectory: _parentDir(item.targetPath),
           );
+          _track(item, process);
+          break;
+
+        case ItemType.batScript:
+          // 通过 cmd /c 运行批处理
+          final process = await Process.start(
+            'cmd',
+            ['/c', item.targetPath],
+            workingDirectory: _parentDir(item.targetPath),
+          );
+          _track(item, process);
+          break;
+
+        case ItemType.command:
+          // 通过 cmd /k 保持窗口打开
+          final process = await Process.start(
+            'cmd',
+            ['/k', item.targetPath],
+            workingDirectory: _parentDir(item.targetPath),
+          );
+          _track(item, process);
           break;
 
         case ItemType.file:
@@ -118,19 +131,12 @@ class LaunchService {
           SystemCommands.execute(item.targetPath);
           break;
 
-        case ItemType.command:
-          await Process.run(
-            'start',
-            ['""', 'cmd', '/k', item.targetPath],
-            runInShell: true,
-          );
-          break;
-
         case ItemType.link:
           await Process.run(
             'start',
             ['""', item.targetPath],
             runInShell: true,
+            workingDirectory: _parentDir(item.targetPath),
           );
           break;
       }
@@ -153,9 +159,6 @@ class LaunchService {
         ItemService().notifyItemsChanged();
       }
 
-      // 延迟刷新运行状态（等进程真正启动）
-      Future.delayed(const Duration(milliseconds: 500), refreshRunningState);
-
       return (success: true, errorMessage: null);
     } catch (e) {
       final msg = e.toString();
@@ -173,97 +176,32 @@ class LaunchService {
     }
   }
 
-  /// 查指定 exe 是否在运行
-  Future<bool> isRunning(String targetPath) async {
-    final exe = _exeName(targetPath);
-    if (exe.isEmpty) return false;
+  /// 按 itemId 杀进程
+  Future<bool> killProcess(String itemId) async {
+    final tp = _tracked[itemId];
+    if (tp == null) return false;
     try {
-      final result = await Process.run(
-        'tasklist',
-        ['/NH', '/FO', 'CSV', '/FI', 'IMAGENAME eq $exe'],
-      );
-      return result.stdout.toString().contains(',');
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// 结束指定进程（按 exe 名）
-  Future<bool> killProcess(String exeName) async {
-    if (exeName.isEmpty) return false;
-    try {
-      await Process.run('taskkill', ['/F', '/IM', exeName]);
+      tp.process.kill();
+      await tp.process.exitCode;
+      // exitCode.then 回调中已清理 _tracked，这里确保通知
+      _tracked.remove(itemId);
+      _notify();
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  /// 扫描系统所有进程，与用户的所有启动项匹配，返回当前正在运行的进程列表
-  Future<List<ProcessInfo>> scanRunningProcesses() async {
-    // 从 ItemService 获取所有启动项，建立 exe名 -> 项名 映射
-    final allItems = ItemService().items.value;
-    final exeToItem = <String, String>{};
-    for (final item in allItems) {
-      final exe = _exeName(item.targetPath);
-      if (exe.isNotEmpty) exeToItem[exe.toLowerCase()] = item.name;
-    }
-    if (exeToItem.isEmpty) return [];
-
-    try {
-      // 一次 tasklist 获取所有进程
-      final result = await Process.run('tasklist', ['/NH', '/FO', 'CSV']);
-      final running = <ProcessInfo>[];
-      final seen = <String>{};
-
-      for (final line in result.stdout.toString().trim().split('\n')) {
-        final trimmed = line.trim();
-        if (trimmed.isEmpty) continue;
-
-        final parts = trimmed.split(',');
-        if (parts.length < 2) continue;
-
-        final imageName = parts[0].replaceAll('"', '').trim().toLowerCase();
-        if (imageName.isEmpty || seen.contains(imageName)) continue;
-
-        final pidStr = parts[1].replaceAll('"', '').trim();
-        final pid = int.tryParse(pidStr);
-        if (pid == null || pid <= 0) continue;
-
-        // 去掉 .exe 后缀后查映射（_exeName 已返回不带后缀的纯名）
-        final nameKey = imageName.endsWith('.exe')
-            ? imageName.substring(0, imageName.length - 4)
-            : imageName;
-        final itemName = exeToItem[nameKey];
-        if (itemName == null) continue;
-
-        seen.add(imageName);
-        running.add(ProcessInfo(
-          itemName: itemName,
-          exeName: imageName,
-          pid: pid,
-          firstSeenAt: DateTime.now(),
-        ));
-      }
-
-      return running;
-    } catch (_) {
-      return [];
-    }
-  }
-
-  /// 退出时清理所有子进程（扫描 ItemService 中所有项）
+  /// 退出时清理所有子进程
   Future<void> killAllProcesses() async {
-    final items = ItemService().items.value;
-    final seen = <String>{};
-    for (final item in items) {
-      final exe = _exeName(item.targetPath);
-      if (exe.isEmpty || seen.contains(exe.toLowerCase())) continue;
-      seen.add(exe.toLowerCase());
+    final ids = _tracked.keys.toList();
+    for (final id in ids) {
       try {
-        await Process.run('taskkill', ['/F', '/IM', exe]);
+        _tracked[id]?.process.kill();
       } catch (_) {}
     }
+    _tracked.clear();
+    _notify();
   }
 
   String? _parentDir(String path) {

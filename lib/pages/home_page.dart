@@ -63,7 +63,6 @@ class _HomePageState extends State<HomePage> {
       setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
     });
     HotkeyService().groupHotkeyTrigger.addListener(_onGroupHotkeyTriggered);
-    LaunchService().refreshRunningState();
   }
 
   @override

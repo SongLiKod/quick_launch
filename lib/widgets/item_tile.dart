@@ -156,14 +156,6 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
     );
   }
 
-  /// 从 targetPath 规范化提取 exe 纯名（去路径、参数、逗号、.exe）
-  String _normalizeExe(String targetPath) {
-    var name = targetPath.split(RegExp(r'[/\\]')).last;
-    name = name.split(RegExp(r'\s+')).first.split(',').first;
-    if (name.endsWith('.exe')) name = name.substring(0, name.length - 4);
-    return name.toLowerCase();
-  }
-
   Future<void> _onKillProcess(BuildContext context) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -184,8 +176,7 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
     );
     if (ok != true) return;
 
-    final exe = _normalizeExe(widget.item.targetPath);
-    final killed = await LaunchService().killProcess(exe);
+    final killed = await LaunchService().killProcess(widget.item.id);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -194,8 +185,52 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
         behavior: SnackBarBehavior.floating,
       ),
     );
-    // 刷新运行状态
-    LaunchService().refreshRunningState();
+  }
+
+  Widget _runningIndicator() {
+    return ValueListenableBuilder<List<TrackedProcess>>(
+      valueListenable: LaunchService().runningProcesses,
+      builder: (_, processes, _) {
+        final running = processes.any((p) => p.itemId == widget.item.id);
+        if (!running) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(left: 6),
+          child: Tooltip(
+            message: '正在运行',
+            child: Icon(Icons.circle, size: 8, color: Colors.green[600]),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _launchButton({bool mini = false}) {
+    return ValueListenableBuilder<List<TrackedProcess>>(
+      valueListenable: LaunchService().runningProcesses,
+      builder: (_, processes, _) {
+        final running = processes.any((p) => p.itemId == widget.item.id);
+        final icon = running ? Icons.stop_circle_outlined : Icons.play_arrow;
+        final color = running ? Colors.red : Colors.green;
+        final tooltip = running ? '结束进程' : '启动';
+
+        if (mini) {
+          return _buildMiniIconButton(
+            icon: icon,
+            color: color,
+            tooltip: tooltip,
+            onPressed: () => running
+                ? _onKillProcess(context)
+                : _onLaunch(context),
+          );
+        }
+        return IconButton(
+          icon: Icon(icon, color: color),
+          tooltip: tooltip,
+          onPressed: () =>
+              running ? _onKillProcess(context) : _onLaunch(context),
+        );
+      },
+    );
   }
 
   @override
@@ -271,21 +306,7 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                        ValueListenableBuilder<Set<String>>(
-                                          valueListenable:
-                                              LaunchService().runningExeNames,
-                                          builder: (_, exes, child) {
-                                            final exe = _normalizeExe(widget.item.targetPath);
-                                            if (exe.isEmpty || !exes.contains(exe) && !exes.contains('$exe.exe')) {
-                                              return const SizedBox.shrink();
-                                            }
-                                            return const Padding(
-                                              padding: EdgeInsets.only(left: 6),
-                                              child: Icon(Icons.circle,
-                                                  size: 8, color: Colors.green),
-                                            );
-                                          },
-                                        ),
+                                        _runningIndicator(),
                                       ],
                                     ),
                                   ),
@@ -328,29 +349,7 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                           const SizedBox(width: 8),
                         ],
                         if (!widget.selectMode) ...[
-                          ValueListenableBuilder<Set<String>>(
-                            valueListenable:
-                                LaunchService().runningExeNames,
-                            builder: (_, exes, _) {
-                              final exe = _normalizeExe(widget.item.targetPath);
-                              final running = exe.isNotEmpty &&
-                                  (exes.contains(exe) ||
-                                      exes.contains('$exe.exe'));
-                              return IconButton(
-                                icon: Icon(
-                                  running
-                                      ? Icons.stop_circle_outlined
-                                      : Icons.play_arrow,
-                                  color:
-                                      running ? Colors.red : Colors.green,
-                                ),
-                                tooltip: running ? '结束进程' : '启动',
-                                onPressed: () => running
-                                    ? _onKillProcess(context)
-                                    : _onLaunch(context),
-                              );
-                            },
-                          ),
+                           _launchButton(),
                           IconButton(
                             icon: const Icon(Icons.edit_outlined),
                             tooltip: '编辑',
@@ -429,21 +428,7 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    ValueListenableBuilder<Set<String>>(
-                                      valueListenable:
-                                          LaunchService().runningExeNames,
-                                      builder: (_, exes, child2) {
-                                        final exe = _normalizeExe(widget.item.targetPath);
-                                        if (exe.isEmpty || !exes.contains(exe) && !exes.contains('$exe.exe')) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        return const Padding(
-                                          padding: EdgeInsets.only(left: 4),
-                                          child: Icon(Icons.circle,
-                                              size: 6, color: Colors.green),
-                                        );
-                                      },
-                                    ),
+                                    _runningIndicator(),
                                   ],
                                 ),
                                 Row(
@@ -467,26 +452,7 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          ValueListenableBuilder<Set<String>>(
-                            valueListenable:
-                                LaunchService().runningExeNames,
-                            builder: (_, exes, _) {
-                              final exe = _normalizeExe(widget.item.targetPath);
-                              final running = exe.isNotEmpty &&
-                                  (exes.contains(exe) ||
-                                      exes.contains('$exe.exe'));
-                              return _buildMiniIconButton(
-                                icon: running
-                                    ? Icons.stop_circle_outlined
-                                    : Icons.play_arrow,
-                                color: running ? Colors.red : Colors.green,
-                                tooltip: running ? '结束进程' : '启动',
-                                onPressed: () => running
-                                    ? _onKillProcess(context)
-                                    : _onLaunch(context),
-                              );
-                            },
-                          ),
+                          _launchButton(mini: true),
                           PopupMenuButton<String>(
                             icon: const Icon(Icons.more_horiz, size: 18),
                             padding: EdgeInsets.zero,
