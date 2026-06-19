@@ -22,6 +22,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final ItemService _itemService = ItemService();
   final GroupService _groupService = GroupService();
   final TextEditingController _searchController = TextEditingController();
@@ -128,7 +129,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openSettings() {
-    Scaffold.of(context).openEndDrawer();
+    _scaffoldKey.currentState?.openEndDrawer();
   }
 
   // ── 批量选择模式 ──
@@ -472,6 +473,7 @@ class _HomePageState extends State<HomePage> {
     final enableDrag = sortMode == SortMode.manual && columnCount <= 1;
 
     return Scaffold(
+      key: _scaffoldKey,
       endDrawer: Drawer(
         width: 340,
         child: SafeArea(
