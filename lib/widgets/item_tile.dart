@@ -217,12 +217,37 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                                   ],
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: Text(
-                                      widget.item.name,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                    child: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            widget.item.name,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        ValueListenableBuilder<Set<String>>(
+                                          valueListenable:
+                                              LaunchService().runningExeNames,
+                                          builder: (_, exes, child) {
+                                            final exe = widget.item.targetPath
+                                                .split(RegExp(r'[/\\]')).last
+                                                .split(RegExp(r'\s+')).first
+                                                .toLowerCase();
+                                            if (exe.isEmpty || !exes.contains(exe) && !exes.contains('$exe.exe')) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return const Padding(
+                                              padding: EdgeInsets.only(left: 6),
+                                              child: Icon(Icons.circle,
+                                                  size: 8, color: Colors.green),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -334,14 +359,38 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  widget.item.name,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        widget.item.name,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    ValueListenableBuilder<Set<String>>(
+                                      valueListenable:
+                                          LaunchService().runningExeNames,
+                                      builder: (_, exes, child2) {
+                                        final exe = widget.item.targetPath
+                                            .split(RegExp(r'[/\\]')).last
+                                            .split(RegExp(r'\s+')).first
+                                            .toLowerCase();
+                                        if (exe.isEmpty || !exes.contains(exe) && !exes.contains('$exe.exe')) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        return const Padding(
+                                          padding: EdgeInsets.only(left: 4),
+                                          child: Icon(Icons.circle,
+                                              size: 6, color: Colors.green),
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 ),
                                 Row(
                                   children: [
