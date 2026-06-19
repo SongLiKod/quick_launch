@@ -198,181 +198,184 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                     horizontal: 12,
                     vertical: 4,
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (widget.groupColor != null)
-                        Container(
-                          width: 4,
-                          decoration: BoxDecoration(
-                            color: widget.groupColor,
-                            borderRadius: BorderRadius.horizontal(
-                              left: Radius.circular(8),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.groupColor != null)
+                          Container(
+                            width: 4,
+                            decoration: BoxDecoration(
+                              color: widget.groupColor,
+                              borderRadius: BorderRadius.horizontal(
+                                left: Radius.circular(8),
+                              ),
                             ),
                           ),
-                        ),
-                      Expanded(
-                        child: Card(
-                          margin: EdgeInsets.zero,
-                          clipBehavior: Clip.antiAlias,
-                          shape: borderColor != null
-                              ? RoundedRectangleBorder(
-                                  side: BorderSide(
-                                    color: borderColor,
-                                    width: 2,
+                        Expanded(
+                          child: Card(
+                            margin: EdgeInsets.zero,
+                            clipBehavior: Clip.antiAlias,
+                            shape: borderColor != null
+                                ? RoundedRectangleBorder(
+                                    side: BorderSide(
+                                      color: borderColor,
+                                      width: 2,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  )
+                                : RoundedRectangleBorder(
+                                    borderRadius: widget.groupColor != null
+                                        ? BorderRadius.only(
+                                            topRight: Radius.circular(8),
+                                            bottomRight: Radius.circular(8),
+                                          )
+                                        : BorderRadius.circular(8),
                                   ),
-                                  borderRadius: BorderRadius.circular(8),
-                                )
-                              : RoundedRectangleBorder(
-                                  borderRadius: widget.groupColor != null
-                                      ? BorderRadius.only(
-                                          topRight: Radius.circular(8),
-                                          bottomRight: Radius.circular(8),
-                                        )
-                                      : BorderRadius.circular(8),
-                                ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                if (widget.selectMode)
-                                  Checkbox(
-                                    value: widget.isSelected,
-                                    onChanged: (v) =>
-                                        widget.onSelect?.call(v ?? false),
-                                  ),
-                                if (!widget.selectMode && widget.index != null)
-                                  ReorderableDragStartListener(
-                                    index: widget.index!,
-                                    child: const Padding(
-                                      padding: EdgeInsets.only(right: 4),
-                                      child: Icon(
-                                        Icons.drag_handle,
-                                        color: Colors.grey,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  if (widget.selectMode)
+                                    Checkbox(
+                                      value: widget.isSelected,
+                                      onChanged: (v) =>
+                                          widget.onSelect?.call(v ?? false),
+                                    ),
+                                  if (!widget.selectMode &&
+                                      widget.index != null)
+                                    ReorderableDragStartListener(
+                                      index: widget.index!,
+                                      child: const Padding(
+                                        padding: EdgeInsets.only(right: 4),
+                                        child: Icon(
+                                          Icons.drag_handle,
+                                          color: Colors.grey,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                _buildIcon(),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          _buildTypeLabel(),
-                                          if (_isStale()) ...[
-                                            const SizedBox(width: 4),
-                                            _buildStaleBadge(),
-                                          ],
-                                          if (widget.groupName != null) ...[
-                                            const SizedBox(width: 4),
-                                            _buildGroupBadge(),
-                                          ],
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              widget.item.name,
-                                              style: const TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w500,
+                                  _buildIcon(),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            _buildTypeLabel(),
+                                            if (_isStale()) ...[
+                                              const SizedBox(width: 4),
+                                              _buildStaleBadge(),
+                                            ],
+                                            if (widget.groupName != null) ...[
+                                              const SizedBox(width: 4),
+                                              _buildGroupBadge(),
+                                            ],
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                widget.item.name,
+                                                style: const TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        widget.item.targetPath,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
+                                          ],
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      if (widget.item.aliases.isNotEmpty) ...[
-                                        const SizedBox(height: 4),
-                                        Wrap(
-                                          spacing: 4,
-                                          runSpacing: 2,
-                                          children: widget.item.aliases
-                                              .map(
-                                                (a) => Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 5,
-                                                        vertical: 1,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.purple
-                                                        .withValues(
-                                                          alpha: 0.08,
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          widget.item.targetPath,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (widget.item.aliases.isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Wrap(
+                                            spacing: 4,
+                                            runSpacing: 2,
+                                            children: widget.item.aliases
+                                                .map(
+                                                  (a) => Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 5,
+                                                          vertical: 1,
                                                         ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          3,
-                                                        ),
-                                                    border: Border.all(
+                                                    decoration: BoxDecoration(
                                                       color: Colors.purple
                                                           .withValues(
-                                                            alpha: 0.2,
+                                                            alpha: 0.08,
                                                           ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            3,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: Colors.purple
+                                                            .withValues(
+                                                              alpha: 0.2,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      a,
+                                                      style: const TextStyle(
+                                                        fontSize: 10,
+                                                        color: Colors.purple,
+                                                        height: 1.3,
+                                                      ),
                                                     ),
                                                   ),
-                                                  child: Text(
-                                                    a,
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      color: Colors.purple,
-                                                      height: 1.3,
-                                                    ),
-                                                  ),
-                                                ),
-                                              )
-                                              .toList(),
-                                        ),
+                                                )
+                                                .toList(),
+                                          ),
+                                        ],
                                       ],
-                                    ],
-                                  ),
-                                ),
-                                if (widget.item.hotkeyVirtualKey != null) ...[
-                                  _buildHotkeyBadge(),
-                                  const SizedBox(width: 8),
-                                ],
-                                if (!widget.selectMode) ...[
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.play_arrow,
-                                      color: Colors.green,
                                     ),
-                                    tooltip: '启动',
-                                    onPressed: () => _onLaunch(context),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined),
-                                    tooltip: '编辑',
-                                    onPressed: () => _onEdit(context),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      color: Colors.red,
+                                  if (widget.item.hotkeyVirtualKey != null) ...[
+                                    _buildHotkeyBadge(),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  if (!widget.selectMode) ...[
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.play_arrow,
+                                        color: Colors.green,
+                                      ),
+                                      tooltip: '启动',
+                                      onPressed: () => _onLaunch(context),
                                     ),
-                                    tooltip: '删除',
-                                    onPressed: () => _onDelete(context),
-                                  ),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined),
+                                      tooltip: '编辑',
+                                      onPressed: () => _onEdit(context),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red,
+                                      ),
+                                      tooltip: '删除',
+                                      onPressed: () => _onDelete(context),
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },
