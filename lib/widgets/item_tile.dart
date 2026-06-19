@@ -156,6 +156,48 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
     );
   }
 
+  /// 从 targetPath 规范化提取 exe 纯名（去路径、参数、逗号、.exe）
+  String _normalizeExe(String targetPath) {
+    var name = targetPath.split(RegExp(r'[/\\]')).last;
+    name = name.split(RegExp(r'\s+')).first.split(',').first;
+    if (name.endsWith('.exe')) name = name.substring(0, name.length - 4);
+    return name.toLowerCase();
+  }
+
+  Future<void> _onKillProcess(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('结束进程'),
+        content: Text('确定结束 "${widget.item.name}" 的进程？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('结束', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final exe = _normalizeExe(widget.item.targetPath);
+    final killed = await LaunchService().killProcess(exe);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+            Text(killed ? '已结束 "${widget.item.name}" 的进程' : '结束进程失败'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    // 刷新运行状态
+    LaunchService().refreshRunningState();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.isGridMode) return _buildGridTile(context);
@@ -233,10 +275,7 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                                           valueListenable:
                                               LaunchService().runningExeNames,
                                           builder: (_, exes, child) {
-                                            final exe = widget.item.targetPath
-                                                .split(RegExp(r'[/\\]')).last
-                                                .split(RegExp(r'\s+')).first
-                                                .toLowerCase();
+                                            final exe = _normalizeExe(widget.item.targetPath);
                                             if (exe.isEmpty || !exes.contains(exe) && !exes.contains('$exe.exe')) {
                                               return const SizedBox.shrink();
                                             }
@@ -289,10 +328,28 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                           const SizedBox(width: 8),
                         ],
                         if (!widget.selectMode) ...[
-                          IconButton(
-                            icon: const Icon(Icons.play_arrow, color: Colors.green),
-                            tooltip: '启动',
-                            onPressed: () => _onLaunch(context),
+                          ValueListenableBuilder<Set<String>>(
+                            valueListenable:
+                                LaunchService().runningExeNames,
+                            builder: (_, exes, _) {
+                              final exe = _normalizeExe(widget.item.targetPath);
+                              final running = exe.isNotEmpty &&
+                                  (exes.contains(exe) ||
+                                      exes.contains('$exe.exe'));
+                              return IconButton(
+                                icon: Icon(
+                                  running
+                                      ? Icons.stop_circle_outlined
+                                      : Icons.play_arrow,
+                                  color:
+                                      running ? Colors.red : Colors.green,
+                                ),
+                                tooltip: running ? '结束进程' : '启动',
+                                onPressed: () => running
+                                    ? _onKillProcess(context)
+                                    : _onLaunch(context),
+                              );
+                            },
                           ),
                           IconButton(
                             icon: const Icon(Icons.edit_outlined),
@@ -376,10 +433,7 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                                       valueListenable:
                                           LaunchService().runningExeNames,
                                       builder: (_, exes, child2) {
-                                        final exe = widget.item.targetPath
-                                            .split(RegExp(r'[/\\]')).last
-                                            .split(RegExp(r'\s+')).first
-                                            .toLowerCase();
+                                        final exe = _normalizeExe(widget.item.targetPath);
                                         if (exe.isEmpty || !exes.contains(exe) && !exes.contains('$exe.exe')) {
                                           return const SizedBox.shrink();
                                         }
@@ -413,11 +467,25 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          _buildMiniIconButton(
-                            icon: Icons.play_arrow,
-                            color: Colors.green,
-                            tooltip: '启动',
-                            onPressed: () => _onLaunch(context),
+                          ValueListenableBuilder<Set<String>>(
+                            valueListenable:
+                                LaunchService().runningExeNames,
+                            builder: (_, exes, _) {
+                              final exe = _normalizeExe(widget.item.targetPath);
+                              final running = exe.isNotEmpty &&
+                                  (exes.contains(exe) ||
+                                      exes.contains('$exe.exe'));
+                              return _buildMiniIconButton(
+                                icon: running
+                                    ? Icons.stop_circle_outlined
+                                    : Icons.play_arrow,
+                                color: running ? Colors.red : Colors.green,
+                                tooltip: running ? '结束进程' : '启动',
+                                onPressed: () => running
+                                    ? _onKillProcess(context)
+                                    : _onLaunch(context),
+                              );
+                            },
                           ),
                           PopupMenuButton<String>(
                             icon: const Icon(Icons.more_horiz, size: 18),

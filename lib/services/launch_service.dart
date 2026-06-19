@@ -63,16 +63,19 @@ class LaunchService {
     }
   }
 
-  /// 从 targetPath 提取 exe 文件名（去掉路径和参数）
-  /// "C:\Program Files\Chrome\chrome.exe" → "chrome.exe"
+  /// 从 targetPath 提取 exe 文件名（去掉路径、参数和 .exe 后缀）
+  /// "C:\Program Files\Chrome\chrome.exe" → "chrome"
   /// "mysqld --console" → "mysqld"
   /// "notepad" → "notepad"
+  /// "D:\path\app.exe,0" → "app"
   String _exeName(String targetPath) {
     try {
       // 取文件名（最后一段）
       var name = targetPath.split(RegExp(r'[/\\]')).last;
-      // 去掉参数（空格后的内容）
-      name = name.split(RegExp(r'\s+')).first;
+      // 去掉参数（空格后的内容）以及逗号后缀（如 ",0"）
+      name = name.split(RegExp(r'\s+')).first.split(',').first;
+      // 去掉 .exe 后缀（统一规范化）
+      if (name.endsWith('.exe')) name = name.substring(0, name.length - 4);
       if (name.isEmpty) return targetPath;
       return name;
     } catch (_) {
@@ -227,11 +230,11 @@ class LaunchService {
         final pid = int.tryParse(pidStr);
         if (pid == null || pid <= 0) continue;
 
-        // 去掉 .exe 后缀后查映射（_exeName 返回不带后缀的文件名）
+        // 去掉 .exe 后缀后查映射（_exeName 已返回不带后缀的纯名）
         final nameKey = imageName.endsWith('.exe')
             ? imageName.substring(0, imageName.length - 4)
             : imageName;
-        final itemName = exeToItem[nameKey] ?? exeToItem[imageName];
+        final itemName = exeToItem[nameKey];
         if (itemName == null) continue;
 
         seen.add(imageName);
