@@ -147,6 +147,30 @@ bool FlutterWindow::OnCreate() {
             }
           }
           result->Success(flutter::EncodableValue(false));
+        } else if (method == "runAsAdmin") {
+          const auto& args = *call.arguments();
+          if (std::holds_alternative<std::string>(args)) {
+            const auto pathUtf8 = std::get<std::string>(args);
+            if (!pathUtf8.empty()) {
+              int len = MultiByteToWideChar(CP_UTF8, 0, pathUtf8.c_str(), -1, nullptr, 0);
+              if (len > 0) {
+                std::wstring wpath(len, L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, pathUtf8.c_str(), -1, wpath.data(), len);
+
+                SHELLEXECUTEINFOW sei = {sizeof(SHELLEXECUTEINFOW)};
+                sei.hwnd = GetHandle();
+                sei.lpVerb = L"runas";
+                sei.lpFile = wpath.c_str();
+                sei.nShow = SW_SHOWNORMAL;
+
+                if (ShellExecuteExW(&sei)) {
+                  result->Success(flutter::EncodableValue(true));
+                  return;
+                }
+              }
+            }
+          }
+          result->Success(flutter::EncodableValue(false));
         } else if (method == "requestExit") {
           // Called from tray "Exit" — force close regardless of minimize setting.
           minimize_to_tray_ = false;
