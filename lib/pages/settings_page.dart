@@ -214,7 +214,7 @@ class SettingsPage extends StatelessWidget {
 
           // ===== 当前运行的进程 =====
           _sectionHeader(context, '当前运行的进程'),
-          _runningProcessesSection(context),
+          _RunningProcessesSection(),
           const Divider(height: 1),
 
           // ===== 诊断 =====
@@ -743,53 +743,6 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  Widget _runningProcessesSection(BuildContext context) {
-    return ValueListenableBuilder<List<ProcessInfo>>(
-      valueListenable: LaunchService().runningProcesses,
-      builder: (_, processes, _) {
-        if (processes.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(
-              '没有正在运行的进程',
-              style: TextStyle(color: Colors.grey),
-            ),
-          );
-        }
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text(
-                '共 ${processes.length} 个进程',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ),
-            ...processes.map((info) => _processTile(context, info)),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _processTile(BuildContext context, ProcessInfo info) {
-    return ListTile(
-      leading: const Icon(Icons.miscellaneous_services, color: Colors.blue),
-      title: Text(info.itemName),
-      subtitle: Text('PID: ${info.pid}  •  运行 ${info.runningDurationText}'),
-      trailing: FilledButton.tonalIcon(
-        onPressed: () async {
-          await LaunchService().killProcess(info.itemName);
-        },
-        icon: const Icon(Icons.stop, size: 16),
-        label: const Text('结束'),
-        style: FilledButton.styleFrom(
-          foregroundColor: Colors.red,
-        ),
-      ),
-    );
-  }
-
   Widget _listTile(
     BuildContext context, {
     required IconData icon,
@@ -803,6 +756,114 @@ class SettingsPage extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
+    );
+  }
+}
+
+/// 当前运行的进程区块
+class _RunningProcessesSection extends StatefulWidget {
+  @override
+  State<_RunningProcessesSection> createState() =>
+      _RunningProcessesSectionState();
+}
+
+class _RunningProcessesSectionState extends State<_RunningProcessesSection> {
+  List<ProcessInfo> _processes = [];
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _loading = true);
+    final results = await LaunchService().scanRunningProcesses();
+    if (!mounted) return;
+    setState(() {
+      _processes = results;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Center(child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )),
+      );
+    }
+
+    if (_processes.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '没有正在运行的进程',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            children: [
+              Text(
+                '共 ${_processes.length} 个进程',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 16),
+                tooltip: '刷新',
+                onPressed: _refresh,
+              ),
+            ],
+          ),
+        ),
+        ..._processes.map((info) => _buildProcessTile(info)),
+      ],
+    );
+  }
+
+  Widget _buildProcessTile(ProcessInfo info) {
+    return ListTile(
+      leading: const Icon(Icons.miscellaneous_services, color: Colors.blue),
+      title: Text(info.itemName),
+      subtitle: Text('PID: ${info.pid}  •  运行 ${info.runningDurationText}'),
+      trailing: FilledButton.tonalIcon(
+        onPressed: () {
+          LaunchService().killProcess(info.exeName).then((ok) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(ok ? '已结束进程' : '结束进程失败'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            _refresh();
+          });
+        },
+        icon: const Icon(Icons.stop, size: 16),
+        label: const Text('结束'),
+        style: FilledButton.styleFrom(
+          foregroundColor: Colors.red,
+        ),
+      ),
     );
   }
 }
