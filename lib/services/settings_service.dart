@@ -23,6 +23,9 @@ class SettingsService {
   // 搜索快捷键
   final ValueNotifier<int?> searchHotkeyModifiers = ValueNotifier(null);
   final ValueNotifier<int?> searchHotkeyKey = ValueNotifier(null);
+  // 暂停切换快捷键
+  final ValueNotifier<int?> pauseHotkeyModifiers = ValueNotifier(null);
+  final ValueNotifier<int?> pauseHotkeyKey = ValueNotifier(null);
   // 自定义图标路径
   final ValueNotifier<String?> customIconPath = ValueNotifier(null);
   // 多列展示
@@ -43,6 +46,8 @@ class SettingsService {
   static const _kShowWindowKey = 'show_window_key';
   static const _kSearchHotkeyModifiers = 'search_hotkey_modifiers';
   static const _kSearchHotkeyKey = 'search_hotkey_key';
+  static const _kPauseHotkeyModifiers = 'pause_hotkey_modifiers';
+  static const _kPauseHotkeyKey = 'pause_hotkey_key';
   static const _kCustomIconPath = 'custom_icon_path';
   static const _kColumnCount = 'column_count';
   static const _kContextMenu = 'context_menu_enabled';
@@ -65,6 +70,10 @@ class SettingsService {
     searchHotkeyModifiers.value = (shm != null && shm >= 0) ? shm : null;
     final shk = _prefs.getInt(_kSearchHotkeyKey);
     searchHotkeyKey.value = (shk != null && shk >= 0) ? shk : null;
+    final phm = _prefs.getInt(_kPauseHotkeyModifiers);
+    pauseHotkeyModifiers.value = (phm != null && phm >= 0) ? phm : null;
+    final phk = _prefs.getInt(_kPauseHotkeyKey);
+    pauseHotkeyKey.value = (phk != null && phk >= 0) ? phk : null;
     customIconPath.value = _prefs.getString(_kCustomIconPath);
     columnCount.value = _prefs.getInt(_kColumnCount) ?? 1;
     contextMenuEnabled.value = _prefs.getBool(_kContextMenu) ?? false;
@@ -122,6 +131,13 @@ class SettingsService {
     searchHotkeyModifiers.value = modifiers;
     await _prefs.setInt(_kSearchHotkeyModifiers, modifiers ?? -1);
     await _prefs.setInt(_kSearchHotkeyKey, key ?? -1);
+  }
+
+  Future<void> setPauseHotkey(int? modifiers, int? key) async {
+    pauseHotkeyKey.value = key;
+    pauseHotkeyModifiers.value = modifiers;
+    await _prefs.setInt(_kPauseHotkeyModifiers, modifiers ?? -1);
+    await _prefs.setInt(_kPauseHotkeyKey, key ?? -1);
   }
 
   Future<void> setCustomIconPath(String? path) async {
