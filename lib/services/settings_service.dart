@@ -155,24 +155,31 @@ class SettingsService {
   static Future<void> _installContextMenu() async {
     final exePath = Platform.resolvedExecutable;
 
+    // 写入 HKCU\Software\Classes（当前用户，无需管理员权限）
     // 1. 注册表：* → 所有文件
-    await _regAdd(r'HKCR\*\shell\QuickLaunch', '添加到快速启动');
+    await _regAdd(r'HKCU\Software\Classes\*\shell\QuickLaunch', '添加到快速启动');
     await _regAdd(
-      r'HKCR\*\shell\QuickLaunch\command',
+      r'HKCU\Software\Classes\*\shell\QuickLaunch\command',
       '"$exePath" "--add-file" "%1"',
     );
 
     // 2. 注册表：Directory → 文件夹
-    await _regAdd(r'HKCR\Directory\shell\QuickLaunch', '添加到快速启动');
     await _regAdd(
-      r'HKCR\Directory\shell\QuickLaunch\command',
+      r'HKCU\Software\Classes\Directory\shell\QuickLaunch',
+      '添加到快速启动',
+    );
+    await _regAdd(
+      r'HKCU\Software\Classes\Directory\shell\QuickLaunch\command',
       '"$exePath" "--add-file" "%1"',
     );
 
     // 3. 注册表：Directory\Background → 文件夹背景空白处
-    await _regAdd(r'HKCR\Directory\Background\shell\QuickLaunch', '添加到快速启动');
     await _regAdd(
-      r'HKCR\Directory\Background\shell\QuickLaunch\command',
+      r'HKCU\Software\Classes\Directory\Background\shell\QuickLaunch',
+      '添加到快速启动',
+    );
+    await _regAdd(
+      r'HKCU\Software\Classes\Directory\Background\shell\QuickLaunch\command',
       '"$exePath" "--add-file" "%V"',
     );
 
@@ -185,9 +192,11 @@ class SettingsService {
 
   /// 卸载右键菜单：清理注册表 + 删除 SendTo 快捷方式
   static Future<void> _uninstallContextMenu() async {
-    await _regDelete(r'HKCR\*\shell\QuickLaunch');
-    await _regDelete(r'HKCR\Directory\shell\QuickLaunch');
-    await _regDelete(r'HKCR\Directory\Background\shell\QuickLaunch');
+    await _regDelete(r'HKCU\Software\Classes\*\shell\QuickLaunch');
+    await _regDelete(r'HKCU\Software\Classes\Directory\shell\QuickLaunch');
+    await _regDelete(
+      r'HKCU\Software\Classes\Directory\Background\shell\QuickLaunch',
+    );
 
     // 删除 SendTo 快捷方式
     final sendTo =
