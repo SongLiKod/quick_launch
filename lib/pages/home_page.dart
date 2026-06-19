@@ -44,10 +44,12 @@ class _HomePageState extends State<HomePage> {
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery;
       filtered = filtered
-          .where((item) =>
-              item.name.toLowerCase().contains(q) ||
-              item.targetPath.toLowerCase().contains(q) ||
-              item.aliases.any((a) => a.toLowerCase().contains(q)))
+          .where(
+            (item) =>
+                item.name.toLowerCase().contains(q) ||
+                item.targetPath.toLowerCase().contains(q) ||
+                item.aliases.any((a) => a.toLowerCase().contains(q)),
+          )
           .toList();
     }
     return filtered;
@@ -60,7 +62,9 @@ class _HomePageState extends State<HomePage> {
     SettingsService().columnCount.addListener(_onChanged);
     _groupService.groups.addListener(_onChanged);
     _searchController.addListener(() {
-      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+      setState(
+        () => _searchQuery = _searchController.text.trim().toLowerCase(),
+      );
     });
     HotkeyService().groupHotkeyTrigger.addListener(_onGroupHotkeyTriggered);
   }
@@ -92,10 +96,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openGroupManage() {
-    showDialog(
-      context: context,
-      builder: (_) => const GroupManageDialog(),
-    );
+    showDialog(context: context, builder: (_) => const GroupManageDialog());
   }
 
   Future<void> _showAddDialog() async {
@@ -127,9 +128,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openSettings() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SettingsPage()),
-    );
+    Scaffold.of(context).openEndDrawer();
   }
 
   // ── 批量选择模式 ──
@@ -218,32 +217,31 @@ class _HomePageState extends State<HomePage> {
             children: [
               ListTile(
                 title: const Text('无分组'),
-                leading: Icon(
-                  Icons.block,
-                  color: Colors.grey[400],
-                ),
+                leading: Icon(Icons.block, color: Colors.grey[400]),
                 selected: targetGroupId == null,
                 onTap: () {
                   targetGroupId = null;
                   Navigator.of(ctx).pop('__no_group__');
                 },
               ),
-              ...groups.map((g) => ListTile(
-                    title: Text(g.name),
-                    leading: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: Color(g.colorValue),
-                        shape: BoxShape.circle,
-                      ),
+              ...groups.map(
+                (g) => ListTile(
+                  title: Text(g.name),
+                  leading: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Color(g.colorValue),
+                      shape: BoxShape.circle,
                     ),
-                    selected: targetGroupId == g.id,
-                    onTap: () {
-                      targetGroupId = g.id;
-                      Navigator.of(ctx).pop(g.id);
-                    },
-                  )),
+                  ),
+                  selected: targetGroupId == g.id,
+                  onTap: () {
+                    targetGroupId = g.id;
+                    Navigator.of(ctx).pop(g.id);
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -253,7 +251,9 @@ class _HomePageState extends State<HomePage> {
 
     final count = _selectedIds.length;
     await _groupService.moveItemsToGroup(
-        _selectedIds.toList(), result == '__no_group__' ? null : result);
+      _selectedIds.toList(),
+      result == '__no_group__' ? null : result,
+    );
     setState(() {
       _selectionMode = false;
       _selectedIds.clear();
@@ -287,8 +287,13 @@ class _HomePageState extends State<HomePage> {
               child: Row(
                 children: [
                   _buildGroupChip('全部', null),
-                  ...groups.map((g) => _buildGroupChip(g.name, g.id,
-                      color: Color(g.colorValue))),
+                  ...groups.map(
+                    (g) => _buildGroupChip(
+                      g.name,
+                      g.id,
+                      color: Color(g.colorValue),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -305,8 +310,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildGroupChip(String label, String? groupId,
-      {Color? color}) {
+  Widget _buildGroupChip(String label, String? groupId, {Color? color}) {
     final selected = _selectedGroupId == groupId;
     return Padding(
       padding: const EdgeInsets.only(right: 6),
@@ -315,9 +319,7 @@ class _HomePageState extends State<HomePage> {
         child: Container(
           height: 30,
           decoration: BoxDecoration(
-            color: selected
-                ? color?.withValues(alpha: 0.15)
-                : null,
+            color: selected ? color?.withValues(alpha: 0.15) : null,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: selected
@@ -358,13 +360,17 @@ class _HomePageState extends State<HomePage> {
 
   String? _getGroupName(String? groupId) {
     if (groupId == null) return null;
-    final group = _groupService.groups.value.where((g) => g.id == groupId).firstOrNull;
+    final group = _groupService.groups.value
+        .where((g) => g.id == groupId)
+        .firstOrNull;
     return group?.name;
   }
 
   Color? _getGroupColor(String? groupId) {
     if (groupId == null) return null;
-    final group = _groupService.groups.value.where((g) => g.id == groupId).firstOrNull;
+    final group = _groupService.groups.value
+        .where((g) => g.id == groupId)
+        .firstOrNull;
     return group?.color;
   }
 
@@ -400,9 +406,7 @@ class _HomePageState extends State<HomePage> {
               onPressed: _selectedIds.isEmpty ? null : _batchDelete,
               icon: const Icon(Icons.delete_outline, size: 18),
               label: const Text('删除'),
-              style: FilledButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              style: FilledButton.styleFrom(foregroundColor: Colors.red),
             ),
           ],
         ),
@@ -468,6 +472,40 @@ class _HomePageState extends State<HomePage> {
     final enableDrag = sortMode == SortMode.manual && columnCount <= 1;
 
     return Scaffold(
+      endDrawer: Drawer(
+        width: 340,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '设置',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(child: SettingsBody()),
+            ],
+          ),
+        ),
+      ),
       appBar: AppBar(
         title: Row(
           children: [
@@ -481,7 +519,10 @@ class _HomePageState extends State<HomePage> {
                   decoration: InputDecoration(
                     hintText: '搜索...',
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -515,9 +556,9 @@ class _HomePageState extends State<HomePage> {
             tooltip: '系统命令',
             icon: const Icon(Icons.power_settings_new),
             onSelected: (item) => LaunchService().launch(item),
-            itemBuilder: (_) => SystemCommands.builtinCommands.map((cmd) =>
-              PopupMenuItem(value: cmd, child: Text(cmd.name)),
-            ).toList(),
+            itemBuilder: (_) => SystemCommands.builtinCommands
+                .map((cmd) => PopupMenuItem(value: cmd, child: Text(cmd.name)))
+                .toList(),
           ),
         ],
       ),
@@ -538,8 +579,13 @@ class _HomePageState extends State<HomePage> {
                         Icon(Icons.search_off, size: 64, color: Colors.grey),
                         const SizedBox(height: 16),
                         Text(
-                          _searchQuery.isNotEmpty ? '没有匹配的启动项' : '点击右下角 + 添加启动项',
-                          style: const TextStyle(fontSize: 16, color: Colors.grey),
+                          _searchQuery.isNotEmpty
+                              ? '没有匹配的启动项'
+                              : '点击右下角 + 添加启动项',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
                         ),
                       ],
                     ),
@@ -603,23 +649,23 @@ class _HomePageState extends State<HomePage> {
       floatingActionButton: _selectionMode
           ? null
           : Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FloatingActionButton.small(
-            heroTag: 'scan',
-            onPressed: _showScanImportDialog,
-            tooltip: '批量扫描导入',
-            child: const Icon(Icons.manage_search, size: 20),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton(
-            heroTag: 'add',
-            onPressed: _showAddDialog,
-            tooltip: '添加启动项',
-            child: const Icon(Icons.add),
-          ),
-        ],
-      ),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'scan',
+                  onPressed: _showScanImportDialog,
+                  tooltip: '批量扫描导入',
+                  child: const Icon(Icons.manage_search, size: 20),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton(
+                  heroTag: 'add',
+                  onPressed: _showAddDialog,
+                  tooltip: '添加启动项',
+                  child: const Icon(Icons.add),
+                ),
+              ],
+            ),
     );
   }
 }
