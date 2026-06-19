@@ -227,8 +227,11 @@ class LaunchService {
         final pid = int.tryParse(pidStr);
         if (pid == null || pid <= 0) continue;
 
-        // 检查这个 exe 是否在用户启动项中
-        final itemName = exeToItem[imageName] ?? exeToItem['$imageName.exe'];
+        // 去掉 .exe 后缀后查映射（_exeName 返回不带后缀的文件名）
+        final nameKey = imageName.endsWith('.exe')
+            ? imageName.substring(0, imageName.length - 4)
+            : imageName;
+        final itemName = exeToItem[nameKey] ?? exeToItem[imageName];
         if (itemName == null) continue;
 
         seen.add(imageName);
