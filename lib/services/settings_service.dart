@@ -158,6 +158,11 @@ class SettingsService {
     // 写入 HKCU\Software\Classes（当前用户，无需管理员权限）
     // 1. 注册表：* → 所有文件
     await _regAdd(r'HKCU\Software\Classes\*\shell\QuickLaunch', '添加到快速启动');
+    await _regAddValue(
+      r'HKCU\Software\Classes\*\shell\QuickLaunch',
+      'Icon',
+      '"$exePath"',
+    );
     await _regAdd(
       r'HKCU\Software\Classes\*\shell\QuickLaunch\command',
       '"$exePath" "--add-file" "%1"',
@@ -168,6 +173,11 @@ class SettingsService {
       r'HKCU\Software\Classes\Directory\shell\QuickLaunch',
       '添加到快速启动',
     );
+    await _regAddValue(
+      r'HKCU\Software\Classes\Directory\shell\QuickLaunch',
+      'Icon',
+      '"$exePath"',
+    );
     await _regAdd(
       r'HKCU\Software\Classes\Directory\shell\QuickLaunch\command',
       '"$exePath" "--add-file" "%1"',
@@ -177,6 +187,11 @@ class SettingsService {
     await _regAdd(
       r'HKCU\Software\Classes\Directory\Background\shell\QuickLaunch',
       '添加到快速启动',
+    );
+    await _regAddValue(
+      r'HKCU\Software\Classes\Directory\Background\shell\QuickLaunch',
+      'Icon',
+      '"$exePath"',
     );
     await _regAdd(
       r'HKCU\Software\Classes\Directory\Background\shell\QuickLaunch\command',
@@ -208,6 +223,22 @@ class SettingsService {
 
   static Future<void> _regAdd(String keyPath, String value) async {
     await Process.run('reg', ['add', keyPath, '/ve', '/d', value, '/f']);
+  }
+
+  static Future<void> _regAddValue(
+    String keyPath,
+    String valueName,
+    String value,
+  ) async {
+    await Process.run('reg', [
+      'add',
+      keyPath,
+      '/v',
+      valueName,
+      '/d',
+      value,
+      '/f',
+    ]);
   }
 
   static Future<void> _regDelete(String keyPath) async {
