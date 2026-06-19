@@ -367,7 +367,10 @@ Future<void> _updateTrayPauseState() async {
     final iconPath = paused
         ? await TrayIconHelper.savePausedIconToFile()
         : await TrayIconHelper.saveIconToFile();
+    // 切换托盘图标
     await systemTray.setSystemTrayInfo(iconPath: iconPath, toolTip: toolTip);
+    // 切换任务栏窗口图标
+    await _settingsChannel.invokeMethod('setAppIcon', iconPath);
   } catch (_) {}
 }
 
