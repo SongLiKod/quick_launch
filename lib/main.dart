@@ -167,6 +167,26 @@ Future<void> _startupAfterRunApp() async {
     }
   });
 
+  // 10c. Listen for pause hotkey changes from settings
+  SettingsService().pauseHotkeyModifiers.addListener(() {
+    HotkeyService().unregisterPauseHotkey();
+    final m = SettingsService().pauseHotkeyModifiers.value;
+    final k = SettingsService().pauseHotkeyKey.value;
+    if (m != null && k != null) {
+      HotkeyService().registerPauseHotkey(m, k);
+    }
+  });
+
+  // 10d. Register pause toggle hotkey if configured
+  final pauseMods = SettingsService().pauseHotkeyModifiers.value;
+  final pauseKey = SettingsService().pauseHotkeyKey.value;
+  if (pauseMods != null && pauseKey != null) {
+    HotkeyService().registerPauseHotkey(pauseMods, pauseKey);
+  }
+
+  // 10e. Listen for pause state changes → update tray appearance
+  HotkeyService().paused.addListener(_onPauseStateChanged);
+
   // 11. Sync settings to native
   await _syncSettingsToNative();
 
@@ -295,29 +315,8 @@ Future<void> _initSystemTray() async {
       toolTip: '快速启动',
     );
 
-    final menu = Menu();
-    await menu.buildFrom([
-      MenuItemLabel(label: '显示', onClicked: (_) => appWindow.show()),
-      MenuSeparator(),
-      MenuItemLabel(
-        label: '重新加载',
-        onClicked: (_) async {
-          // 启动新进程后退出当前进程
-          await Process.start(Platform.resolvedExecutable, []);
-          HotkeyService().dispose();
-          await _settingsChannel.invokeMethod('requestExit');
-        },
-      ),
-      MenuSeparator(),
-      MenuItemLabel(
-        label: '退出',
-        onClicked: (_) async {
-          HotkeyService().dispose();
-          await _settingsChannel.invokeMethod('requestExit');
-        },
-      ),
-    ]);
-    await systemTray.setContextMenu(menu);
+    await _updateTrayMenu();
+    await _updateTrayPauseState();
 
     systemTray.registerSystemTrayEventHandler((event) {
       if (event == kSystemTrayEventClick) {
@@ -329,6 +328,55 @@ Future<void> _initSystemTray() async {
   } catch (_) {
     // 托盘初始化失败不阻止应用运行
   }
+}
+
+Future<void> _updateTrayMenu() async {
+  final menu = Menu();
+  await menu.buildFrom([
+    MenuItemLabel(label: '显示', onClicked: (_) => appWindow.show()),
+    MenuSeparator(),
+    MenuItemLabel(
+      label: '重新加载',
+      onClicked: (_) async {
+        await Process.start(Platform.resolvedExecutable, []);
+        HotkeyService().dispose();
+        await _settingsChannel.invokeMethod('requestExit');
+      },
+    ),
+    MenuSeparator(),
+    MenuItemLabel(
+      label: HotkeyService().paused.value ? '✓ 暂停热键' : '  暂停热键',
+      onClicked: (_) => HotkeyService().togglePause(),
+    ),
+    MenuSeparator(),
+    MenuItemLabel(
+      label: '退出',
+      onClicked: (_) async {
+        HotkeyService().dispose();
+        await _settingsChannel.invokeMethod('requestExit');
+      },
+    ),
+  ]);
+  await systemTray.setContextMenu(menu);
+}
+
+Future<void> _updateTrayPauseState() async {
+  final paused = HotkeyService().paused.value;
+  final toolTip = paused ? '快速启动 - 热键已暂停' : '快速启动';
+  try {
+    final iconPath = paused
+        ? await TrayIconHelper.savePausedIconToFile()
+        : await TrayIconHelper.saveIconToFile();
+    // 切换托盘图标
+    await systemTray.setSystemTrayInfo(iconPath: iconPath, toolTip: toolTip);
+    // 切换任务栏窗口图标
+    await _settingsChannel.invokeMethod('setAppIcon', iconPath);
+  } catch (_) {}
+}
+
+void _onPauseStateChanged() {
+  _updateTrayMenu();
+  _updateTrayPauseState();
 }
 
 /// 显示添加启动项对话框（来自右键菜单或命令行参数），含自动去重。

@@ -314,6 +314,25 @@ class SettingsBody extends StatelessWidget {
           valueNotifier: service.contextMenuEnabled,
           onChanged: (v) => service.setContextMenuEnabled(v),
         ),
+        ValueListenableBuilder<bool>(
+          valueListenable: HotkeyService().paused,
+          builder: (_, paused, _) => _switchTile(
+            context,
+            icon: Icons.pause_circle_outline,
+            title: '暂停热键',
+            subtitle: paused ? '所有全局热键已暂停' : '暂停后将停止响应所有全局热键',
+            valueNotifier: HotkeyService().paused,
+            onChanged: (v) {
+              if (v) {
+                HotkeyService().pauseAll();
+              } else {
+                HotkeyService().resumeAll();
+              }
+            },
+          ),
+        ),
+        // 暂停切换快捷键
+        _pauseHotkeyTile(context, service),
         const Divider(height: 1),
 
         // ===== 列表管理 =====
@@ -552,6 +571,102 @@ void _editSearchHotkey(BuildContext context, SettingsService service) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('全局搜索快捷键已设为 ${formatHotkeyLabel(modifiers, vk)}'),
+              ),
+            );
+          },
+          child: const Text('确定'),
+        ),
+      ],
+    ),
+  );
+}
+
+// ---------- 暂停快捷键 ----------
+
+Widget _pauseHotkeyTile(BuildContext context, SettingsService service) {
+  return ValueListenableBuilder<int?>(
+    valueListenable: service.pauseHotkeyModifiers,
+    builder: (_, mods, _) {
+      final key = service.pauseHotkeyKey.value;
+      final label = formatHotkeyLabel(mods, key);
+      return ListTile(
+        leading: const Icon(Icons.keyboard),
+        title: const Text('暂停切换快捷键'),
+        subtitle: Text(label == '未设置' ? '未设置' : '按 $label 切换热键暂停状态'),
+        trailing: TextButton(
+          onPressed: () => _editPauseHotkey(context, service),
+          child: Text(key == null ? '设置' : '修改'),
+        ),
+      );
+    },
+  );
+}
+
+void _editPauseHotkey(BuildContext context, SettingsService service) {
+  final controller = TextEditingController();
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('暂停切换快捷键'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('输入快捷键组合，按后快速切换全局热键暂停/恢复：'),
+          const SizedBox(height: 8),
+          Text(
+            '  Ctrl+Alt+P\n  Ctrl+Shift+Pause\n  Win+Esc',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: '快捷键',
+              hintText: 'Ctrl+Alt+P',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () {
+            service.setPauseHotkey(null, null);
+            HotkeyService().unregisterPauseHotkey();
+            Navigator.of(ctx).pop();
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('已清除暂停切换快捷键')));
+          },
+          child: const Text('清除', style: TextStyle(color: Colors.red)),
+        ),
+        FilledButton(
+          onPressed: () {
+            final text = controller.text.trim();
+            if (text.isEmpty) return;
+
+            final result = parseHotkeyText(text);
+            if (result == null) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                const SnackBar(content: Text('无效格式，请使用 Ctrl+Alt+A 格式')),
+              );
+              return;
+            }
+            final (modifiers, vk) = result;
+
+            HotkeyService().unregisterPauseHotkey();
+            HotkeyService().registerPauseHotkey(modifiers, vk);
+            service.setPauseHotkey(modifiers, vk);
+
+            Navigator.of(ctx).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('暂停切换快捷键已设为 ${formatHotkeyLabel(modifiers, vk)}'),
               ),
             );
           },
