@@ -27,6 +27,8 @@ class SettingsService {
   final ValueNotifier<String?> customIconPath = ValueNotifier(null);
   // 多列展示
   final ValueNotifier<int> columnCount = ValueNotifier(1);
+  // 右键菜单
+  final ValueNotifier<bool> contextMenuEnabled = ValueNotifier(false);
 
   late SharedPreferences _prefs;
 
@@ -43,6 +45,7 @@ class SettingsService {
   static const _kSearchHotkeyKey = 'search_hotkey_key';
   static const _kCustomIconPath = 'custom_icon_path';
   static const _kColumnCount = 'column_count';
+  static const _kContextMenu = 'context_menu_enabled';
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
@@ -64,6 +67,7 @@ class SettingsService {
     searchHotkeyKey.value = (shk != null && shk >= 0) ? shk : null;
     customIconPath.value = _prefs.getString(_kCustomIconPath);
     columnCount.value = _prefs.getInt(_kColumnCount) ?? 1;
+    contextMenuEnabled.value = _prefs.getBool(_kContextMenu) ?? false;
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -137,6 +141,93 @@ class SettingsService {
     await _prefs.setInt(_kColumnCount, clamped);
   }
 
+  Future<void> setContextMenuEnabled(bool enable) async {
+    contextMenuEnabled.value = enable;
+    await _prefs.setBool(_kContextMenu, enable);
+    if (enable) {
+      await _installContextMenu();
+    } else {
+      await _uninstallContextMenu();
+    }
+  }
+
+  /// 安装右键菜单：写入注册表 + 创建 SendTo 快捷方式
+  static Future<void> _installContextMenu() async {
+    final exePath = Platform.resolvedExecutable;
+
+    // 1. 注册表：* → 所有文件
+    await _regAdd(r'HKCR\*\shell\QuickLaunch', '添加到快速启动');
+    await _regAdd(
+      r'HKCR\*\shell\QuickLaunch\command',
+      '"$exePath" "--add-file" "%1"',
+    );
+
+    // 2. 注册表：Directory → 文件夹
+    await _regAdd(r'HKCR\Directory\shell\QuickLaunch', '添加到快速启动');
+    await _regAdd(
+      r'HKCR\Directory\shell\QuickLaunch\command',
+      '"$exePath" "--add-file" "%1"',
+    );
+
+    // 3. 注册表：Directory\Background → 文件夹背景空白处
+    await _regAdd(r'HKCR\Directory\Background\shell\QuickLaunch', '添加到快速启动');
+    await _regAdd(
+      r'HKCR\Directory\Background\shell\QuickLaunch\command',
+      '"$exePath" "--add-file" "%V"',
+    );
+
+    // 4. SendTo 快捷方式
+    final sendTo =
+        Platform.environment['APPDATA']! +
+        r'\Microsoft\Windows\SendTo\Quick Launch.lnk';
+    await _createShortcut(exePath, '--add-file', sendTo);
+  }
+
+  /// 卸载右键菜单：清理注册表 + 删除 SendTo 快捷方式
+  static Future<void> _uninstallContextMenu() async {
+    await _regDelete(r'HKCR\*\shell\QuickLaunch');
+    await _regDelete(r'HKCR\Directory\shell\QuickLaunch');
+    await _regDelete(r'HKCR\Directory\Background\shell\QuickLaunch');
+
+    // 删除 SendTo 快捷方式
+    final sendTo =
+        Platform.environment['APPDATA']! +
+        r'\Microsoft\Windows\SendTo\Quick Launch.lnk';
+    final file = File(sendTo);
+    if (await file.exists()) await file.delete();
+  }
+
+  static Future<void> _regAdd(String keyPath, String value) async {
+    await Process.run('reg', ['add', keyPath, '/ve', '/d', value, '/f']);
+  }
+
+  static Future<void> _regDelete(String keyPath) async {
+    await Process.run('reg', ['delete', keyPath, '/f']);
+  }
+
+  /// 使用 PowerShell 创建 .lnk 快捷方式
+  static Future<void> _createShortcut(
+    String target,
+    String args,
+    String destPath,
+  ) async {
+    await Process.run('powershell', [
+      '-NoProfile',
+      '-Command',
+      r'$ws = New-Object -ComObject WScript.Shell;'
+          r'$s = $ws.CreateShortcut('
+          "$destPath"
+          ');'
+          r'$s.TargetPath = '
+          "$target"
+          ';'
+          r'$s.Arguments = '
+          "$args"
+          ';'
+          r'$s.Save()',
+    ]);
+  }
+
   /// 写入/删除开机自启注册表，含延迟
   static Future<void> _applyAutoStart(bool enable, int delaySec) async {
     final keyPath = r'HKCU\Software\Microsoft\Windows\CurrentVersion\Run';
@@ -149,7 +240,16 @@ class SettingsService {
             ? 'cmd /c timeout /t $delaySec /nobreak >nul & start "" "$exePath"'
             : '"$exePath"';
         final result = await Process.run('reg', [
-          'add', keyPath, '/v', 'QuickLaunch', '/t', 'REG_SZ', '/d', cmd, '/f', '/reg:64',
+          'add',
+          keyPath,
+          '/v',
+          'QuickLaunch',
+          '/t',
+          'REG_SZ',
+          '/d',
+          cmd,
+          '/f',
+          '/reg:64',
         ]);
         if (result.exitCode != 0) {
           // ignore: avoid_print
@@ -157,7 +257,11 @@ class SettingsService {
         }
       } else {
         await Process.run('reg', [
-          'delete', keyPath, '/v', 'QuickLaunch', '/f',
+          'delete',
+          keyPath,
+          '/v',
+          'QuickLaunch',
+          '/f',
         ]);
       }
     } catch (e) {
@@ -168,9 +272,12 @@ class SettingsService {
 
   static ThemeMode _parseTheme(String? s) {
     switch (s) {
-      case 'dark': return ThemeMode.dark;
-      case 'system': return ThemeMode.system;
-      default: return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      case 'system':
+        return ThemeMode.system;
+      default:
+        return ThemeMode.light;
     }
   }
 
@@ -182,23 +289,35 @@ class SettingsService {
 
   static SortMode _parseSort(String? s) {
     switch (s) {
-      case 'name': return SortMode.name;
-      case 'created': return SortMode.created;
-      case 'type': return SortMode.type;
-      case 'mostUsed': return SortMode.mostUsed;
-      case 'recentlyUsed': return SortMode.recentlyUsed;
-      default: return SortMode.manual;
+      case 'name':
+        return SortMode.name;
+      case 'created':
+        return SortMode.created;
+      case 'type':
+        return SortMode.type;
+      case 'mostUsed':
+        return SortMode.mostUsed;
+      case 'recentlyUsed':
+        return SortMode.recentlyUsed;
+      default:
+        return SortMode.manual;
     }
   }
 
   static String _stringifySort(SortMode mode) {
     switch (mode) {
-      case SortMode.name: return 'name';
-      case SortMode.created: return 'created';
-      case SortMode.type: return 'type';
-      case SortMode.mostUsed: return 'mostUsed';
-      case SortMode.recentlyUsed: return 'recentlyUsed';
-      case SortMode.manual: return 'manual';
+      case SortMode.name:
+        return 'name';
+      case SortMode.created:
+        return 'created';
+      case SortMode.type:
+        return 'type';
+      case SortMode.mostUsed:
+        return 'mostUsed';
+      case SortMode.recentlyUsed:
+        return 'recentlyUsed';
+      case SortMode.manual:
+        return 'manual';
     }
   }
 }

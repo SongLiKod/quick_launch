@@ -5,6 +5,7 @@ import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:system_tray/system_tray.dart';
 import 'package:win32/win32.dart';
 import 'app.dart';
+import 'models/launch_item.dart';
 import 'services/item_service.dart';
 import 'services/hotkey_service.dart';
 import 'services/settings_service.dart';
@@ -13,9 +14,11 @@ import 'services/update_service.dart';
 import 'services/group_service.dart';
 import 'utils/tray_icon.dart';
 import 'widgets/search_overlay.dart';
+import 'widgets/add_item_dialog.dart';
 
 late final SystemTray systemTray;
 const MethodChannel _settingsChannel = MethodChannel('quick_launch/settings');
+const MethodChannel _filesChannel = MethodChannel('quick_launch/files');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,6 +91,17 @@ Future<void> _startupAfterRunApp() async {
     if (call.method == 'onHotkey') {
       final hotkeyId = call.arguments as int;
       HotkeyService().onHotkeyPressed(hotkeyId);
+    }
+    return null;
+  });
+
+  // 7b. Setup MethodChannel for file paths (from context menu / command-line).
+  _filesChannel.setMethodCallHandler((call) async {
+    if (call.method == 'onFileReceived') {
+      final path = call.arguments as String;
+      if (path.isNotEmpty) {
+        _showAddFileDialog(path);
+      }
     }
     return null;
   });
@@ -241,8 +255,15 @@ void _onCustomIconChanged() async {
 void _setTopmost(bool on) {
   final hwnd = appWindow.handle;
   if (hwnd != null) {
-    SetWindowPos(hwnd, on ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
-        SWP_NOMOVE | SWP_NOSIZE);
+    SetWindowPos(
+      hwnd,
+      on ? HWND_TOPMOST : HWND_NOTOPMOST,
+      0,
+      0,
+      0,
+      0,
+      SWP_NOMOVE | SWP_NOSIZE,
+    );
   }
 }
 
@@ -276,10 +297,7 @@ Future<void> _initSystemTray() async {
 
     final menu = Menu();
     await menu.buildFrom([
-      MenuItemLabel(
-        label: '显示',
-        onClicked: (_) => appWindow.show(),
-      ),
+      MenuItemLabel(label: '显示', onClicked: (_) => appWindow.show()),
       MenuSeparator(),
       MenuItemLabel(
         label: '重新加载',
@@ -311,4 +329,50 @@ Future<void> _initSystemTray() async {
   } catch (_) {
     // 托盘初始化失败不阻止应用运行
   }
+}
+
+/// 显示添加启动项对话框（来自右键菜单或命令行参数），含自动去重。
+void _showAddFileDialog(String path) {
+  final context = navigatorKey.currentContext;
+  if (context == null) return;
+
+  // 自动去重：如果路径已存在，提示用户而非重复添加
+  final existing = ItemService().items.value.where(
+    (item) =>
+        item.targetPath.replaceAll('"', '').toLowerCase() ==
+        path.replaceAll('"', '').toLowerCase(),
+  );
+  if (existing.isNotEmpty) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('已在列表中'),
+            content: Text('"${path.split('\\').last}" 已在启动列表中。'),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('知道了'),
+              ),
+            ],
+          ),
+        );
+      }
+    });
+    return;
+  }
+
+  // 弹出添加对话框，预填路径和名称
+  showDialog<LaunchItem>(
+    context: context,
+    builder: (ctx) => AddItemDialog(initialFile: path),
+  ).then((result) {
+    if (result != null) {
+      ItemService().addItem(result);
+      if (result.hotkeyVirtualKey != null) {
+        HotkeyService().registerItemHotkey(result);
+      }
+    }
+  });
 }
