@@ -364,7 +364,10 @@ Future<void> _updateTrayPauseState() async {
   final paused = HotkeyService().paused.value;
   final toolTip = paused ? '快速启动 - 热键已暂停' : '快速启动';
   try {
-    await systemTray.setSystemTrayInfo(toolTip: toolTip);
+    final iconPath = paused
+        ? await TrayIconHelper.savePausedIconToFile()
+        : await TrayIconHelper.saveIconToFile();
+    await systemTray.setSystemTrayInfo(iconPath: iconPath, toolTip: toolTip);
   } catch (_) {}
 }
 

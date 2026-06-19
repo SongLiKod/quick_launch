@@ -66,6 +66,11 @@ flutter:
 
   assets:
     - assets/logo.ico
+    - assets/logo-red16.ico
+    - assets/logo-red24.ico
+    - assets/logo-red32.ico
+    - assets/logo-red48.ico
+    - assets/logo-red64.ico
 
   # To add assets to your application, add an assets section, like this:
   # assets:
