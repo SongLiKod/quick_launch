@@ -153,31 +153,35 @@ class HotkeyService {
 
   /// 热键分发入口
   void onHotkeyPressed(int hotkeyId) {
-    // 暂停切换快捷键始终响应
-    if (hotkeyId == togglePauseHotkeyId) {
-      togglePause();
-      return;
-    }
-    // 暂停状态下不响应其他任何热键
-    if (paused.value) return;
+    try {
+      // 暂停切换快捷键始终响应
+      if (hotkeyId == togglePauseHotkeyId) {
+        togglePause();
+        return;
+      }
+      // 暂停状态下不响应其他任何热键
+      if (paused.value) return;
 
-    if (hotkeyId == showWindowHotkeyId) {
-      onShowWindow?.call();
-      return;
-    }
-    if (hotkeyId == searchHotkeyId) {
-      onSearchHotkey?.call();
-      return;
-    }
-    final item = _hotkeyMap[hotkeyId];
-    if (item != null) {
-      LaunchService().launch(item);
-      return;
-    }
-    final groupCb = _groupHotkeyCallbacks[hotkeyId];
-    if (groupCb != null) {
-      groupCb();
-      return;
+      if (hotkeyId == showWindowHotkeyId) {
+        onShowWindow?.call();
+        return;
+      }
+      if (hotkeyId == searchHotkeyId) {
+        onSearchHotkey?.call();
+        return;
+      }
+      final item = _hotkeyMap[hotkeyId];
+      if (item != null) {
+        LaunchService().launch(item);
+        return;
+      }
+      final groupCb = _groupHotkeyCallbacks[hotkeyId];
+      if (groupCb != null) {
+        groupCb();
+        return;
+      }
+    } catch (e) {
+      debugPrint('onHotkeyPressed error: $e');
     }
   }
 

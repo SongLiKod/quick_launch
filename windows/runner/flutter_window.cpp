@@ -148,12 +148,6 @@ bool FlutterWindow::OnCreate() {
                   custom_icon_ = hIcon;
                   SendMessage(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(hIcon));
                   SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(hIcon));
-                  // Force title bar & taskbar to redraw and pick up the new icon
-                  SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
-                               SWP_DRAWFRAME | SWP_NOMOVE | SWP_NOSIZE |
-                                   SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-                  RedrawWindow(hwnd, nullptr, nullptr,
-                               RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW);
                   result->Success(flutter::EncodableValue(true));
                   return;
                 }
