@@ -13,6 +13,7 @@ import '../widgets/group_manage_dialog.dart';
 import '../widgets/group_hotkey_overlay.dart';
 import '../widgets/scan_import_dialog.dart';
 import '../widgets/update_banner.dart';
+import '../utils/pinyin_util.dart';
 import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -45,14 +46,14 @@ class _HomePageState extends State<HomePage> {
     }
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery;
-      filtered = filtered
-          .where(
-            (item) =>
-                item.name.toLowerCase().contains(q) ||
-                item.targetPath.toLowerCase().contains(q) ||
-                item.aliases.any((a) => a.toLowerCase().contains(q)),
-          )
-          .toList();
+      filtered = filtered.where((item) {
+        // 名称/路径/别名/分组 + 拼音首字母/全拼统一匹配
+        final haystack = PinyinUtil.itemHaystack(
+          item,
+          groupName: _getGroupName(item.groupId) ?? '',
+        );
+        return haystack.contains(q);
+      }).toList();
     }
     return filtered;
   }
@@ -520,7 +521,7 @@ class _HomePageState extends State<HomePage> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: '搜索...',
+                    hintText: '搜索（支持拼音首字母，如 jsb）...',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 8,
