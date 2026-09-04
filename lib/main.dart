@@ -88,9 +88,13 @@ Future<void> _startupAfterRunApp() async {
   // 7. Setup MethodChannel for WM_HOTKEY
   const hotkeyChannel = MethodChannel('quick_launch/hotkey');
   hotkeyChannel.setMethodCallHandler((call) async {
-    if (call.method == 'onHotkey') {
-      final hotkeyId = call.arguments as int;
-      HotkeyService().onHotkeyPressed(hotkeyId);
+    try {
+      if (call.method == 'onHotkey') {
+        final hotkeyId = call.arguments as int;
+        HotkeyService().onHotkeyPressed(hotkeyId);
+      }
+    } catch (e) {
+      debugPrint('Hotkey channel error: $e');
     }
     return null;
   });
@@ -108,19 +112,35 @@ Future<void> _startupAfterRunApp() async {
 
   // 8. Setup callback: when show-window hotkey fires, bring window to front
   HotkeyService().onShowWindow = () {
-    final hwnd = appWindow.handle;
-    if (hwnd != null) {
-      ShowWindow(hwnd, SW_RESTORE);
-      SetForegroundWindow(hwnd);
+    try {
+      final hwnd = appWindow.handle;
+      if (hwnd != null && hwnd != 0) {
+        if (IsWindowVisible(hwnd) == 0) {
+          ShowWindow(hwnd, SW_SHOW);
+        }
+        ShowWindow(hwnd, SW_RESTORE);
+        SetForegroundWindow(hwnd);
+        BringWindowToTop(hwnd);
+      }
+    } catch (e) {
+      debugPrint('onShowWindow error: $e');
     }
   };
 
   // 8b. Setup callback: when group hotkey fires, bring window to front
   HotkeyService().onGroupHotkey = (groupId) {
-    final hwnd = appWindow.handle;
-    if (hwnd != null) {
-      ShowWindow(hwnd, SW_RESTORE);
-      SetForegroundWindow(hwnd);
+    try {
+      final hwnd = appWindow.handle;
+      if (hwnd != null && hwnd != 0) {
+        if (IsWindowVisible(hwnd) == 0) {
+          ShowWindow(hwnd, SW_SHOW);
+        }
+        ShowWindow(hwnd, SW_RESTORE);
+        SetForegroundWindow(hwnd);
+        BringWindowToTop(hwnd);
+      }
+    } catch (e) {
+      debugPrint('onGroupHotkey error: $e');
     }
   };
 
@@ -302,6 +322,24 @@ Future<void> _syncSettingsToNative() async {
   });
 }
 
+/// 安全地显示并激活主窗口。
+/// 使用 win32 直接操作窗口，避免 bitsdojo_window 的 appWindow.show() 可能存在的隐式失败问题。
+void _showAppWindow() {
+  try {
+    final hwnd = appWindow.handle;
+    if (hwnd != null && hwnd != 0) {
+      if (IsWindowVisible(hwnd) == 0) {
+        ShowWindow(hwnd, SW_SHOW);
+      }
+      ShowWindow(hwnd, SW_RESTORE);
+      SetForegroundWindow(hwnd);
+      BringWindowToTop(hwnd);
+    }
+  } catch (e) {
+    debugPrint('_showAppWindow error: $e');
+  }
+}
+
 Future<void> _initSystemTray() async {
   try {
     systemTray = SystemTray();
@@ -320,7 +358,7 @@ Future<void> _initSystemTray() async {
 
     systemTray.registerSystemTrayEventHandler((event) {
       if (event == kSystemTrayEventClick) {
-        appWindow.show();
+        _showAppWindow();
       } else if (event == kSystemTrayEventRightClick) {
         systemTray.popUpContextMenu();
       }
@@ -333,7 +371,7 @@ Future<void> _initSystemTray() async {
 Future<void> _updateTrayMenu() async {
   final menu = Menu();
   await menu.buildFrom([
-    MenuItemLabel(label: '显示', onClicked: (_) => appWindow.show()),
+    MenuItemLabel(label: '显示', onClicked: (_) => _showAppWindow()),
     MenuSeparator(),
     MenuItemLabel(
       label: '重新加载',

@@ -309,6 +309,20 @@ class _GroupHotkeyOverlayState extends State<GroupHotkeyOverlay> {
                               ),
                               // 类型标签
                               _buildTypeLabel(item),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(Icons.copy_outlined, size: 16),
+                                tooltip: '复制',
+                                color: Colors.grey,
+                                onPressed: () =>
+                                    LaunchService().copyItem(context, item),
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                              ),
                             ],
                           ),
                         ),
