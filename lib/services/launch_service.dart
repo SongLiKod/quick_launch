@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/launch_item.dart';
 import 'system_commands.dart';
@@ -111,6 +111,18 @@ class LaunchService {
       debugPrint('Failed to launch ${item.name}: $msg');
       return (success: false, errorMessage: msg);
     }
+  }
+
+  /// 复制启动项内容到剪贴板：链接复制链接、文件夹复制路径、命令复制命令文本
+  Future<void> copyItem(BuildContext context, LaunchItem item) async {
+    await Clipboard.setData(ClipboardData(text: item.targetPath));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已复制: ${item.targetPath}'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 
   Future<bool> _launchAsAdmin(String path) async {

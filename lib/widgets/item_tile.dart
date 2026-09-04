@@ -356,6 +356,12 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                                       onPressed: () => _onLaunch(context),
                                     ),
                                     IconButton(
+                                      icon: const Icon(Icons.copy_outlined),
+                                      tooltip: '复制',
+                                      onPressed: () => LaunchService()
+                                          .copyItem(context, widget.item),
+                                    ),
+                                    IconButton(
                                       icon: const Icon(Icons.edit_outlined),
                                       tooltip: '编辑',
                                       onPressed: () => _onEdit(context),
@@ -496,10 +502,24 @@ class _ItemTileState extends State<ItemTile> with TickerProviderStateMixin {
                                     minHeight: 32,
                                   ),
                                   onSelected: (action) {
+                                    if (action == 'copy') {
+                                      LaunchService()
+                                          .copyItem(context, widget.item);
+                                    }
                                     if (action == 'edit') _onEdit(context);
                                     if (action == 'delete') _onDelete(context);
                                   },
                                   itemBuilder: (_) => [
+                                    const PopupMenuItem(
+                                      value: 'copy',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.copy_outlined, size: 18),
+                                          SizedBox(width: 8),
+                                          Text('复制'),
+                                        ],
+                                      ),
+                                    ),
                                     const PopupMenuItem(
                                       value: 'edit',
                                       child: Row(
