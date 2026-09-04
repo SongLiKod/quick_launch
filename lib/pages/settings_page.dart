@@ -381,6 +381,7 @@ class SettingsBody extends StatelessWidget {
             ),
           ),
         ),
+        _buildUpdateTile(context),
         const SizedBox(height: 32),
       ],
     );
@@ -978,5 +979,80 @@ Widget _listTile(
     subtitle: Text(subtitle),
     trailing: const Icon(Icons.chevron_right),
     onTap: onTap,
+  );
+}
+
+// ---------- 检查更新 ----------
+
+Widget _buildUpdateTile(BuildContext context) {
+  return ValueListenableBuilder<UpdateState>(
+    valueListenable: UpdateService().state,
+    builder: (context, s, _) {
+      final (String subtitle, bool busy) = switch (s.phase) {
+        UpdatePhase.checking => ('正在检查更新...', true),
+        UpdatePhase.upToDate => ('当前已是最新版本 v${UpdateService.currentVersion}', false),
+        UpdatePhase.available => (
+          '发现新版本 v${s.latestVersion}，点击立即安装',
+          false,
+        ),
+        UpdatePhase.downloading => (
+          '正在下载新版本 v${s.latestVersion} '
+              '${s.progress >= 0 ? '${(s.progress * 100).toStringAsFixed(0)}%' : ''}',
+          true,
+        ),
+        UpdatePhase.installing => ('下载完成，正在准备安装...', true),
+        UpdatePhase.checkFailed => ('检查失败: ${s.error ?? '未知错误'}', false),
+        UpdatePhase.installFailed => ('安装失败: ${s.error ?? '未知错误'}', false),
+        _ => ('检查是否有新版本', false),
+      };
+
+      final downloading = s.phase == UpdatePhase.downloading;
+      return ListTile(
+        leading: const Icon(Icons.system_update_alt),
+        title: const Text('检查更新'),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(subtitle),
+            if (downloading) ...[
+              const SizedBox(height: 6),
+              LinearProgressIndicator(
+                value: s.progress >= 0 ? s.progress : null,
+                minHeight: 3,
+              ),
+            ],
+          ],
+        ),
+        trailing: s.phase == UpdatePhase.available
+            ? FilledButton.tonal(
+                onPressed: UpdateService().downloadAndInstall,
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                ),
+                child: const Text('安装'),
+              )
+            : (busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : null),
+        onTap: () {
+          switch (s.phase) {
+            case UpdatePhase.available:
+              UpdateService().downloadAndInstall();
+            case UpdatePhase.downloading:
+            case UpdatePhase.installing:
+              // 进行中，忽略点击
+              break;
+            default:
+              UpdateService().checkForUpdate(force: true);
+          }
+        },
+      );
+    },
   );
 }

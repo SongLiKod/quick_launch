@@ -12,6 +12,7 @@ import '../widgets/add_item_dialog.dart';
 import '../widgets/group_manage_dialog.dart';
 import '../widgets/group_hotkey_overlay.dart';
 import '../widgets/scan_import_dialog.dart';
+import '../widgets/update_banner.dart';
 import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -645,6 +646,7 @@ class _HomePageState extends State<HomePage> {
               },
             ),
           ),
+          const UpdateBanner(),
           if (_selectionMode) _buildBatchActionBar(),
         ],
       ),
