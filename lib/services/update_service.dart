@@ -61,7 +61,7 @@ class UpdateService {
       String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0');
 
   static const _repoApi =
-      'https://api.github.com/repos/qq1144403442/quick_launch/releases/latest';
+      'https://api.github.com/repos/SongLiKod/quick_launch/releases/latest';
   static const _exeName = 'quick_launch.exe';
   static const _zipName = 'quick_launch_windows.zip';
 
@@ -130,6 +130,7 @@ class UpdateService {
       state.value = UpdateState(
         phase: UpdatePhase.downloading,
         latestVersion: latest,
+        progress: -1, // 未知大小时显示不定态进度
       );
 
       final workDir =
