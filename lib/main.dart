@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -224,15 +225,8 @@ Future<void> _startupAfterRunApp() async {
     _setTopmost(true);
   }
 
-  // 16. Check for updates
-  if (await UpdateService().checkForUpdate()) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = navigatorKey.currentContext;
-      if (context != null) {
-        UpdateService().showUpdateDialog(context);
-      }
-    });
-  }
+  // 16. Check for updates（结果以主界面底部横幅提示，设置页可手动检查）
+  unawaited(UpdateService().checkForUpdate());
 
   // 17. Hide on startup (last so no flash)
   if (SettingsService().hideOnStartup.value) {
